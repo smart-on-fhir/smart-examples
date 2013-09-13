@@ -87,7 +87,7 @@ BPC.get_vitals = function(offset, vitals) {
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
         vital_date: v.observation.appliesDateTime,
-        height: v.component.valueQuantity
+        height: fhirClient.units.cm(v.component.valueQuantity)
       }); 
     });
 
