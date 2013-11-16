@@ -26,12 +26,12 @@ BPC.get_demographics = function() {
   var dfd = $.Deferred();
 
   fhirClient.get({
-    resource: 'patient',
+    resource: 'Patient',
     id: fhirClient.patientId
   }).done(function(patient) {
 
     var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
-    var birthday = patient.birthDate.toISOString();
+    var birthday = new Date(patient.birthDate).toISOString();
     var gender = patient.gender.coding[0];
 
     dfd.resolve({
@@ -64,10 +64,10 @@ BPC.get_vitals = function(offset, vitals) {
   }
 
   fhirClient.search({
-    resource: 'observation',
+    resource: 'Observation',
     searchTerms: {
-      'subject': 'patient/@'+fhirClient.patientId,
-      'name:anyns' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
+      'subject:Patient':fhirClient.patientId,
+      'name' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
     }
   }).done(drainVitals);
 
