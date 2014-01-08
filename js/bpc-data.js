@@ -64,12 +64,33 @@ BPC.get_vitals = function(offset, vitals) {
   }
 
   fhirClient.search({
-    resource: 'Observation',
+    resource: 'List',
     searchTerms: {
-      'subject:Patient':fhirClient.patientId,
-      'name' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
+      'subject:Patient': fhirClient.patientId,
+      'code' : '55284-4' // Loinc code for BP (Sys + Dia)
     }
-  }).done(drainVitals);
+  }).done(drainBPObservations);
+
+  var bpObservations = {};
+  function drainBPObservations(vs, cursor){
+    vs.forEach(function(v){
+      var obsGroup = v.entry.map(function(i){ return i.item.reference; });
+      v.entry.forEach(function(i){
+        bpObservations[i.item.reference] = obsGroup;
+      });
+    });
+    if (cursor.hasNext()){
+      cursor.next().done(drainBPObservations);
+    } else {
+      fhirClient.search({
+        resource: 'Observation',
+        searchTerms: {
+          'subject:Patient':fhirClient.patientId,
+          'name' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
+        }
+      }).done(drainVitals);
+    }
+  }
 
   var allVitals = [];
   function drainVitals(vs, cursor){
@@ -82,6 +103,14 @@ BPC.get_vitals = function(offset, vitals) {
     }
   }
 
+  function pair(lists, anchor, target){
+    var anchorId = anchor.resource+"/"+anchor.id;
+    return lists[anchorId].map(function(i){
+      return fhirClient.resources.get(i);
+    }).filter(function(d){
+      return d.name.coding.map(function(c){return c.code;}).indexOf(target)  !== -1;
+    });
+  };
 
   function process(vitalsByCode){
     (vitalsByCode['8302-2']||[]).forEach(function(v){
@@ -91,17 +120,18 @@ BPC.get_vitals = function(offset, vitals) {
       }); 
     });
 
-    (vitalsByCode['55284-4']||[]).forEach(function(v){
+    (vitalsByCode['8480-6']||[]).forEach(function(v){
 
-      var bps = fhirClient.byCode(v.observation, 'name');
-      var systolic = bps['8480-6'][0].component.valueQuantity.value;
-      var diastolic = bps['8462-4'][0].component.valueQuantity.value;
+      var diastolicObs = pair(bpObservations, v.observation.resourceId, "8462-4")[0];
+      var systolic = v.observation.valueQuantity.value;
+      var diastolic = diastolicObs.valueQuantity.value;
 
       vitals.bpData.push({
         vital_date: v.observation.appliesDateTime,
         systolic: systolic,
         diastolic: diastolic
       }); 
+
     });
   };
   return dfd.promise();
