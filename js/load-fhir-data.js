@@ -33,7 +33,7 @@
   function processObservations(db){
     var vitals = {heightData: [], bpData: []};
     var vitalsByCode = fhirClient.byCode(db.observations, 'name');
-    (vitalsByCode['8301-2']||[]).forEach(function(v){
+    (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
         vital_date: v.appliesDateTime,
         height: fhirClient.units.cm(v.component.valueQuantity)
