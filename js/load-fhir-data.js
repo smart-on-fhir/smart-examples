@@ -36,7 +36,7 @@
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
         vital_date: v.appliesDateTime,
-        height: fhirClient.units.cm(v.component.valueQuantity)
+        height: fhirClient.units.cm(v.valueQuantity)
       }); 
     });
 
