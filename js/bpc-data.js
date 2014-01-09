@@ -22,121 +22,13 @@ if (!BPC) {
 *
 * @returns {Object} jQuery deferred promise object
 */  
-BPC.get_demographics = function() {
-  var dfd = $.Deferred();
-
-  fhirClient.get({
-    resource: 'Patient',
-    id: fhirClient.patientId
-  }).done(function(patient) {
-
-    var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
-    var birthday = new Date(patient.birthDate).toISOString();
-    var gender = patient.gender.coding[0];
-
-    dfd.resolve({
-      name: name,
-      gender: gender.code == 'M' ? 'male' : 'female',
-      birthday: birthday
-    });
-
-  }).fail(function(e) {
-    dfd.reject(e.message);
-  });
-  return dfd.promise();
-};
-
+BPC.get_demographics = FhirLoader.demographics;
 /**
 * Registers a callback for obtaining the vitals data from SMART (asynchronous)
 *
 * @returns {Object} jQuery deferred promise object
 */  
-BPC.get_vitals = function(offset, vitals) {
-
-  var dfd = $.Deferred(),
-  response,
-  filters = {},
-  d, y;
-
-  if (!vitals) {
-    // Template for the vitals object thrown by the callback
-    vitals = {heightData: [], bpData: []};
-  }
-
-  fhirClient.search({
-    resource: 'List',
-    searchTerms: {
-      'subject:Patient': fhirClient.patientId,
-      'code' : '55284-4' // Loinc code for BP (Sys + Dia)
-    }
-  }).done(drainBPObservations);
-
-  var bpObservations = {};
-  function drainBPObservations(vs, cursor){
-    vs.forEach(function(v){
-      var obsGroup = v.entry.map(function(i){ return i.item.reference; });
-      v.entry.forEach(function(i){
-        bpObservations[i.item.reference] = obsGroup;
-      });
-    });
-    if (cursor.hasNext()){
-      cursor.next().done(drainBPObservations);
-    } else {
-      fhirClient.search({
-        resource: 'Observation',
-        searchTerms: {
-          'subject:Patient':fhirClient.patientId,
-          'name' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
-        }
-      }).done(drainVitals);
-    }
-  }
-
-  var allVitals = [];
-  function drainVitals(vs, cursor){
-    [].push.apply(allVitals, vs); 
-    if (cursor.hasNext()){
-      cursor.next().done(drainVitals);
-    } else {
-      process(fhirClient.byCode(allVitals, 'name'));
-      dfd.resolve(vitals);
-    }
-  }
-
-  function pair(lists, anchor, target){
-    var anchorId = anchor.resource+"/"+anchor.id;
-    return lists[anchorId].map(function(i){
-      return fhirClient.resources.get(i);
-    }).filter(function(d){
-      return d.name.coding.map(function(c){return c.code;}).indexOf(target)  !== -1;
-    });
-  };
-
-  function process(vitalsByCode){
-    (vitalsByCode['8302-2']||[]).forEach(function(v){
-      vitals.heightData.push({
-        vital_date: v.observation.appliesDateTime,
-        height: fhirClient.units.cm(v.component.valueQuantity)
-      }); 
-    });
-
-    (vitalsByCode['8480-6']||[]).forEach(function(v){
-
-      var diastolicObs = pair(bpObservations, v.observation.resourceId, "8462-4")[0];
-      var systolic = v.observation.valueQuantity.value;
-      var diastolic = diastolicObs.valueQuantity.value;
-
-      vitals.bpData.push({
-        vital_date: v.observation.appliesDateTime,
-        systolic: systolic,
-        diastolic: diastolic
-      }); 
-
-    });
-  };
-  return dfd.promise();
-}
-
+BPC.get_vitals = FhirLoader.vitals;
 /**
 * Constructs a new patient object from the data provided
 *
