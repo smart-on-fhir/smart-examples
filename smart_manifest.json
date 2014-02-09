@@ -1,0 +1,22 @@
+{
+  "name": "Diabetes Monograph",
+  "description": "A single page, specialized view for Diabetes Mellitus",
+  "author": "Design and Implimentation: Arjun Sanyal <arjun.sanyal@childrens.harvard.edu>",
+  "id": "dm_monograph@apps.smartplatforms.org",
+  "version": "0.1.1",
+  "optimalBrowserEnvironments": ["desktop"],
+  "supportedBrowserEnvironments": ["desktop", "tablet"],
+
+  "mode": "ui",
+  "scope": "record",
+
+  "index": "http://sample-apps.smartplatforms.org/framework/dm_monograph/index.html",
+  "icon": "http://sample-apps.smartplatforms.org/framework/dm_monograph/assets/icon.png",
+
+  "smart_version": "0.5",
+  "requires": {
+    "http://smartplatforms.org/terms#Demographics": {
+        "methods": ["GET"]
+    }
+  }
+}
