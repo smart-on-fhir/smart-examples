@@ -26,7 +26,7 @@
 
   FhirLoader.vitals = function() {
     return getLists()
-    .pipe(getObservations())
+    .pipe(getObservations)
     .pipe(processObservations);
   }
 
@@ -57,25 +57,8 @@
     return vitals;
   };
 
-  function drain(search, batch){
-    return function(db) {
-      var d = $.Deferred();
-      db = db || {};
-      fhirClient.search(search)
-      .done(function drain(vs, cursor){
-        batch(vs, db);
-        if (cursor.hasNext()){
-          cursor.next().done(drain);
-        } else {
-          d.resolve(db)
-        } 
-      });
-      return d.promise();
-    };
-  };
-
-  function getLists(db){
-    return drain({
+  function getLists(){
+    return fhirClient.drain({
       resource: 'List',
       searchTerms: {
         'subject:Patient': fhirClient.patientId,
@@ -89,11 +72,11 @@
           db.lists[i.item.reference] = obsGroup;
         });
       });
-    })(db);
+    });
   };
 
   function getObservations(db){
-    return drain({
+    return fhirClient.drain({
       resource: 'Observation',
       searchTerms: {
         'subject:Patient':fhirClient.patientId,
@@ -102,7 +85,7 @@
     }, function(vs, db){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
-    });
+    }, db);
   };  
 
   function partner(lists, anchor, target){
