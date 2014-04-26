@@ -25,14 +25,14 @@
   };
 
   FhirLoader.vitals = function() {
-    return getLists()
-    .pipe(getObservations)
-    .pipe(processObservations);
+    return getObservations().pipe(processObservations);
   }
 
   function processObservations(db){
     var vitals = {heightData: [], bpData: []};
+
     var vitalsByCode = fhirClient.byCode(db.observations, 'name');
+
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
         vital_date: v.appliesDateTime,
@@ -40,10 +40,15 @@
       }); 
     });
 
-    (vitalsByCode['8480-6']||[]).forEach(function(v){
+    (vitalsByCode['55284-4']||[]).forEach(function(v){
 
-      var diastolicObs = partner(db.lists, v.resourceId, "8462-4")[0];
-      var systolic = v.valueQuantity.value;
+      var components = fhirClient.byCode(v.related.map(function(c){
+        return fhirClient.followSync(v, c.target);
+      }), 'name');
+
+      var diastolicObs = components["8480-6"][0];
+      var systolicObs = components["8462-4"][0];
+      var systolic = systolicObs.valueQuantity.value;
       var diastolic = diastolicObs.valueQuantity.value;
 
       vitals.bpData.push({
@@ -51,50 +56,23 @@
         systolic: systolic,
         diastolic: diastolic
       }); 
-
     });
 
     return vitals;
   };
 
-  function getLists(){
-    return fhirClient.drain({
-      resource: 'List',
-      searchTerms: {
-        'subject:Patient': fhirClient.patientId,
-        'code' : '55284-4' // Loinc code for BP (Sys + Dia)
-      }
-    }, function(vs, db){
-      vs.forEach(function(v){
-        var obsGroup = v.entry.map(function(i){ return i.item.reference; });
-        v.entry.forEach(function(i){
-          db.lists=(db.lists || {});
-          db.lists[i.item.reference] = obsGroup;
-        });
-      });
-    });
-  };
-
   function getObservations(db){
+    db = db || {};
     return fhirClient.drain({
       resource: 'Observation',
       searchTerms: {
         'subject:Patient':fhirClient.patientId,
-        'name' : '8480-6,8462-4,8302-2'  // sbp, dbp, height
+        'name' : '8480-6,8462-4,8302-2,55284-4'  // sbp, dbp, height
       }
     }, function(vs, db){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
     }, db);
   };  
-
-  function partner(lists, anchor, target){
-    var anchorId = anchor.resource+"/"+anchor.id;
-    return lists[anchorId].map(function(i){
-      return fhirClient.resources.get(i);
-    }).filter(function(d){
-      return d.name.coding.map(function(c){return c.code;}).indexOf(target)  !== -1;
-    });
-  };
 
 })();
