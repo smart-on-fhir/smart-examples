@@ -200,13 +200,13 @@ var get_demographics = function(){
 };
 
 function itemByCode(from, toCode){
-    var item = from.entry.filter(function(e){
-      var matches = fhirClient.followSync(e, e.item).name.coding.filter(function(c){
+    var match = from.related.filter(function(e){
+      var matches = fhirClient.followSync(from, e.target).name.coding.filter(function(c){
         return c.code == toCode;
       });
       return matches.length > 0;
-    })[0].item;
-    return fhirClient.followSync(from, item);
+    })[0].target;
+    return fhirClient.followSync(from, match);
 };
 
 var get_vital_sign_sets = function(){
@@ -216,20 +216,14 @@ var get_vital_sign_sets = function(){
         'resource': 'Observation',
         searchTerms: {
           'subject:Patient':fhirClient.patientId,
-          'name' : '8480-6,8462-4,8302-2,3141-9'  // sbp, dbp, height, weight
+          'name' : '8480-6,8462-4,8302-2,3141-9,55284-4'  // sbp, dbp, height, weight
         }
     });
 
-    var bps = fhirClient.drain({
-      resource: 'List',
-      searchTerms: {
-        'subject:Patient': fhirClient.patientId,
-        'code' : '55284-4' // Loinc code for BP (Sys + Dia)
-      }
-    });
+    vitals.then(function(vitals){
+      var vitalsByCode = fhirClient.byCode(vitals, 'name');
 
-    $.when(vitals, bps).then(function(vitals, bps){
-      bps.forEach(function(bp){
+      vitalsByCode['55284-4'].forEach(function(bp){
         var sys = itemByCode(bp, "8480-6");
         var dia = itemByCode(bp, "8462-4");
 
@@ -262,8 +256,6 @@ var get_vital_sign_sets = function(){
 
       });
 
-      var vitalsByCode = fhirClient.byCode(vitals, 'name');
-      
       pt.weight_arr = _(vitalsByCode["3141-9"]||[]).chain()
         .map(function(v){
           return [
