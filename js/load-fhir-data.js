@@ -3,10 +3,7 @@
 
   FhirLoader.demographics = function() {
     var dfd = $.Deferred();
-    fhirClient.get({
-      resource: 'Patient',
-      id: fhirClient.patientId
-    }).done(function(patient) {
+    smart.Patient.read().done(function(patient) {
 
       var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
       var birthday = new Date(patient.birthDate).toISOString();
@@ -31,19 +28,19 @@
   function processObservations(db){
     var vitals = {heightData: [], bpData: []};
 
-    var vitalsByCode = fhirClient.byCode(db.observations, 'name');
+    var vitalsByCode = smart.byCode(db.observations, 'name');
 
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
         vital_date: v.appliesDateTime,
-        height: fhirClient.units.cm(v.valueQuantity)
+        height: smart.units.cm(v.valueQuantity)
       }); 
     });
 
     (vitalsByCode['55284-4']||[]).forEach(function(v){
 
-      var components = fhirClient.byCode(v.related.map(function(c){
-        return fhirClient.followSync(v, c.target);
+      var components = smart.byCode(v.related.map(function(c){
+        return smart.followSync(v, c.target);
       }), 'name');
 
       var diastolicObs = components["8480-6"][0];
@@ -63,13 +60,9 @@
 
   function getObservations(db){
     db = db || {};
-    return fhirClient.drain({
-      resource: 'Observation',
-      searchTerms: {
-        'subject:Patient':fhirClient.patientId,
-        'name' : '8480-6,8462-4,8302-2,55284-4'  // sbp, dbp, height
-      }
-    }, function(vs, db){
+    var loincs = ['8480-6','8462-4','8302-2','55284-4'];
+    return smart.Observation.where.nameIn(loincs)
+    .drain(function(vs, db){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
     }, db);

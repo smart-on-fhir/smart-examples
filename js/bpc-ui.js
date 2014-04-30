@@ -20,8 +20,8 @@ if (!BPC) {
   * Document ready event handler (jQuery style)
   */
   $(document).ready(function() {
-    BBClient.ready(function(fhirClient){
-      window.fhirClient = fhirClient;
+    FHIR.oauth2.ready(function(smart){
+      window.smart = smart;
       // Fire up the SMART API calls and initialize the application asynchronously
       $.when(BPC.get_demographics(), BPC.get_vitals(0))
       .then( function (demographics, vitals) {
