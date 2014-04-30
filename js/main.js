@@ -153,12 +153,7 @@ var _round = function(val, dec){ return Math.round(val*Math.pow(10,dec))/Math.po
 
 var get_medications = function(){
   return $.Deferred(function(dfd){
-    fhirClient.search({
-      resource: 'MedicationPrescription',
-      searchTerms: {
-        'patient': fhirClient.patientId
-      }
-    }).then(function(rxs){
+    smart.MedicationPrescription.search().then(function(rxs){
       _(rxs).each(function(rx){
         var instructions = rx.dosageInstruction[0].text;
         if (!instructions && rx.dosageInstruction[0].timingSchedule.doseQuantity) {
@@ -172,7 +167,7 @@ var get_medications = function(){
         }
         pt.meds_arr.push([
           new XDate(rx.dosageInstruction[0].timingSchedule.event[0].start).valueOf(),
-          fhirClient.followSync(rx, rx.medication).code.coding[0].display,
+          smart.followSync(rx, rx.medication).code.coding[0].display,
           rx.dosageInstruction && rx.dosageInstruction.text || ""
         ])
       })
@@ -184,10 +179,7 @@ var get_medications = function(){
 
 var get_demographics = function(){
   return $.Deferred(function(dfd){
-    fhirClient.get({
-       resource: 'Patient',
-       id: fhirClient.patientId
-     }).then(function(patient){
+    smart.Patient.read().then(function(patient){
       pt.given_name = patient.name[0].given.join(" ");
       pt.family_name = patient.name[0].family.join(" ");
       pt.gender = patient.gender.coding[0];
@@ -201,27 +193,23 @@ var get_demographics = function(){
 
 function itemByCode(from, toCode){
     var match = from.related.filter(function(e){
-      var matches = fhirClient.followSync(from, e.target).name.coding.filter(function(c){
+      var matches = smart.followSync(from, e.target).name.coding.filter(function(c){
         return c.code == toCode;
       });
       return matches.length > 0;
     })[0].target;
-    return fhirClient.followSync(from, match);
+    return smart.followSync(from, match);
 };
 
 var get_vital_sign_sets = function(){
   return $.Deferred(function(dfd){
     
-    var vitals = fhirClient.drain({
-        'resource': 'Observation',
-        searchTerms: {
-          'subject:Patient':fhirClient.patientId,
-          'name' : '8480-6,8462-4,8302-2,3141-9,55284-4'  // sbp, dbp, height, weight
-        }
-    });
+    var vitals = smart.Observation.where
+      .nameIn('8480-6','8462-4','8302-2','3141-9','55284-4')
+      .drain(); 
 
     vitals.then(function(vitals){
-      var vitalsByCode = fhirClient.byCode(vitals, 'name');
+      var vitalsByCode = smart.byCode(vitals, 'name');
 
       vitalsByCode['55284-4'].forEach(function(bp){
         var sys = itemByCode(bp, "8480-6");
@@ -260,7 +248,7 @@ var get_vital_sign_sets = function(){
         .map(function(v){
           return [
             new XDate(v.appliesDateTime).valueOf(),
-            fhirClient.units.kg(v.valueQuantity),
+            smart.units.kg(v.valueQuantity),
             "kg"
           ];
         }).value()
@@ -272,7 +260,7 @@ var get_vital_sign_sets = function(){
         .map(function(v){
           return [
             new XDate(v.appliesDateTime).valueOf(),
-            fhirClient.units.cm(v.valueQuantity)/100.0,
+            smart.units.cm(v.valueQuantity)/100.0,
             "m"
           ];
         }).value()
@@ -306,14 +294,9 @@ function anyOf(byCode, codes){
 
 var get_lab_results = function(){
   return $.Deferred(function(dfd){
-   fhirClient.drain({
-     'resource': 'Observation',
-      searchTerms: {
-        'subject:Patient':fhirClient.patientId,
-      }
-  }).then(function(results){
-
-      var resultsByCode = fhirClient.byCode(results, 'name');
+   smart.Observation.drain()
+   .then(function(results){
+      var resultsByCode = smart.byCode(results, 'name');
 
       (function ldl(){
         // LOINC Code, Long name, Short Name, class, rank # of 2000
@@ -558,12 +541,7 @@ var get_lab_results = function(){
 
 var get_problems = function(){
   return $.Deferred(function(dfd){
-    fhirClient.search({
-      resource: 'Condition',
-      searchTerms: {
-        subject: fhirClient.patientId
-      }
-    }).then(function(problems){
+    smart.Condition.search().then(function(problems){
       problems.forEach(function(p){
         pt.problems_arr.push([
           new XDate(p.onsetDate),
@@ -579,8 +557,8 @@ var get_problems = function(){
 
 // On SMART.ready, do all the data api calls and synchronize
 // when they are all complete.
-BBClient.ready(function(fhirClient){
-  window.fhirClient = fhirClient;
+FHIR.oauth2.ready(function(smart){
+  window.smart = smart;
   $.when(
      get_demographics()
    , get_vital_sign_sets()
