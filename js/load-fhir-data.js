@@ -3,7 +3,8 @@
 
   FhirLoader.demographics = function() {
     var dfd = $.Deferred();
-    smart.Patient.read().done(function(patient) {
+
+    smart.api.Patient.read().done(function(patient) {
 
       var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
       var birthday = new Date(patient.birthDate).toISOString();
@@ -18,14 +19,18 @@
     }).fail(function(e) {
       dfd.reject(e.message);
     });
+
     return dfd.promise();
   };
+
+  var db = {}
 
   FhirLoader.vitals = function() {
     return getObservations().pipe(processObservations);
   }
 
-  function processObservations(db){
+  function processObservations(){
+
     var vitals = {heightData: [], bpData: []};
 
     var vitalsByCode = smart.byCode(db.observations, 'name');
@@ -40,7 +45,7 @@
     (vitalsByCode['55284-4']||[]).forEach(function(v){
 
       var components = smart.byCode(v.related.map(function(c){
-        return smart.followSync(v, c.target);
+        return smart.cachedLink(v, c.target);
       }), 'name');
 
       var diastolicObs = components["8480-6"][0];
@@ -58,11 +63,10 @@
     return vitals;
   };
 
-  function getObservations(db){
-    db = db || {};
+  function getObservations(){
     var loincs = ['8480-6','8462-4','8302-2','55284-4'];
-    return smart.Observation.where.nameIn(loincs)
-    .drain(function(vs, db){
+    return smart.context.patient.Observation.where.nameIn(loincs)
+    .drain(function(vs){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
     }, db);
