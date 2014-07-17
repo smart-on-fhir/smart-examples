@@ -48,8 +48,8 @@
         return smart.cachedLink(v, c.target);
       }), 'name');
 
-      var diastolicObs = components["8480-6"][0];
-      var systolicObs = components["8462-4"][0];
+      var diastolicObs = components["8462-4"][0];
+      var systolicObs = components["8480-6"][0];
       var systolic = systolicObs.valueQuantity.value;
       var diastolic = diastolicObs.valueQuantity.value;
 
