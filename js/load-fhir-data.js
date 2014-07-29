@@ -26,7 +26,7 @@
   var db = {}
 
   FhirLoader.vitals = function() {
-    return getObservations().pipe(processObservations);
+    return getObservations().pipe(getEncounters).pipe(processObservations);
   }
 
   function processObservations(){
@@ -52,12 +52,39 @@
       var systolicObs = components["8462-4"][0];
       var systolic = systolicObs.valueQuantity.value;
       var diastolic = diastolicObs.valueQuantity.value;
-
-      vitals.bpData.push({
+      var extensions = v.extension;
+      var obj = {
         vital_date: v.appliesDateTime,
         systolic: systolic,
         diastolic: diastolic
-      }); 
+      };
+      
+      if (extensions) {
+          for (var i = 0; i < extensions.length; i++) {
+              if (extensions[i].url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#position") {
+                 var coding = extensions[i].valueCodeableConcept.coding[0];
+                 obj["bodyPositionCode"] = coding.system + coding.code;
+              } else if (extensions[i].url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#encounter"){
+                var encounter = smart.cachedLink(v, extensions[i].valueResource);
+                var encounter_type = encounter.class;
+                if (encounter_type === "outpatient") {
+                    encounter_type = "ambulatory";
+                }
+                obj["encounterTypeCode"] = "http://smartplatforms.org/terms/codes/EncounterType#" + encounter_type;
+              }
+          }
+      }
+      if (v.bodySite) {
+        obj["bodySiteCode"] = v.bodySite.coding[0].system + v.bodySite.coding[0].code;
+      }
+
+      if (v.method) {
+        obj["methodCode"] = v.method.coding[0].system + v.method.coding[0].code;
+      }
+      
+      obj["encounterTypeCode"] = "http://smartplatforms.org/terms/codes/EncounterType#ambulatory";
+      
+      vitals.bpData.push(obj);
     });
 
     return vitals;
@@ -69,6 +96,13 @@
     .drain(function(vs){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
+    }, db);
+  };
+  
+  function getEncounters(){
+    return smart.context.patient.Encounter.where.drain(function(vs){
+      db.encounters = (db.encounters || []); 
+      [].push.apply(db.encounters, vs)
     }, db);
   };  
 
