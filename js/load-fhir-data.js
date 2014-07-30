@@ -60,19 +60,19 @@
       };
       
       if (extensions) {
-          for (var i = 0; i < extensions.length; i++) {
-              if (extensions[i].url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#position") {
-                 var coding = extensions[i].valueCodeableConcept.coding[0];
+          $.each(extensions, function(index, extension){
+              if (extension.url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#position") {
+                 var coding = extension.valueCodeableConcept.coding[0];
                  obj["bodyPositionCode"] = coding.system + coding.code;
-              } else if (extensions[i].url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#encounter"){
-                var encounter = smart.cachedLink(v, extensions[i].valueResource);
+              } else if (extension.url === "http://fhir-registry.smartplatforms.org/Profile/vital-signs#encounter"){
+                var encounter = smart.cachedLink(v, extension.valueResource);
                 var encounter_type = encounter.class;
                 if (encounter_type === "outpatient") {
                     encounter_type = "ambulatory";
                 }
                 obj["encounterTypeCode"] = "http://smartplatforms.org/terms/codes/EncounterType#" + encounter_type;
               }
-          }
+          });
       }
       if (v.bodySite) {
         obj["bodySiteCode"] = v.bodySite.coding[0].system + v.bodySite.coding[0].code;
