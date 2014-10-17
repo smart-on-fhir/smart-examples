@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Disease Monograph Application</title>
+    <script src="lib/fhir-client.js"></script>
+    <script>
+      FHIR.oauth2.authorize({
+        "client_id": "disease_monograph",
+        "scope":  "patient/*.read"
+      });
+    </script>
+  </head>
+  Loading...
+</html>
