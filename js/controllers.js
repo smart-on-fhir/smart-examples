@@ -95,6 +95,7 @@ dmController.controller('$dmController', function ($scope, $rootScope, $dmPatien
         $dmPatient.getFromJSON();
     
         // Bootstrap the FHIR JS Client
+        FHIR.oauth2.settings.replaceBrowserHistory = false;
         FHIR.oauth2.ready(onReady, onError);
         
         function onError(){
