@@ -17,7 +17,7 @@ $dmApp.run(function ($rootScope) {
     $rootScope.sharedVars = {
         serviceBaseUrl: "//dm-service.smartplatforms.org",
         servicePort: "",
-        version: 'V1.95',
+        version: '0.1.95 alpha (incomplete, preview)', //version: 'V1.95',
         enableCart: false,
         verboseDisplay: false,
         prefsVisible: false
