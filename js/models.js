@@ -112,27 +112,37 @@ DMPatientServices.factory('$dmPatient', function () {
                 
                 var allAllergies = [];
 
-                smart.context.patient.AllergyIntolerance.where.drain(drainAllergies).done(doneAllergies);
+                smart.context.patient.AllergyIntolerance
+                .where
+                .drain(drainAllergies)
+                .done(doneAllergies);
 
                 function drainAllergies(as){
                   [].push.apply(allAllergies, as); 
                 };
                 
                 function doneAllergies(){
+                    // TO DO: need to verify that coding systems etc
+                
+                    var startingpoint=$.Deferred();
+                    startingpoint.resolve();
+                
                     $.each(allAllergies, function (idx, a) {
-                        //var c = p.code.coding[0];
-                        // TO DO: need to verify that c.system is SNOMEDCT
-
-                        /*
-                        var allergen = a.drugClassAllergen || a.foodAllergen;
-                        if (allergen) {
-                            allergy = { "allergen": "...", "reaction": "..." };
-                            patient.allergies.push(allergy);
-                        }
-                        */
+                        startingpoint=startingpoint.pipe(function() {
+                            return $.when(smart.followLink(a, a.reaction[0]), smart.followLink(a, a.substance))
+                              .then(function (r, s) {
+                                    //var allergen = a.drugClassAllergen || a.foodAllergen;
+                                    //if (allergen) {
+                                        var allergy = { "allergen": s.type.coding[0].display, "reaction": r.symptom[0].code.coding[0].display };
+                                        patient.allergies.push(allergy);
+                                    //}
+                              });
+                        });
                     });
 
-                    dfd.resolve();
+                    startingpoint=startingpoint.pipe(function() {
+                        dfd.resolve();
+                    });
                 };
             }).promise();
         },
@@ -156,7 +166,7 @@ DMPatientServices.factory('$dmPatient', function () {
                     _(allLabs).chain().sortBy(function (l) {
                         return l.name.coding[0].display;
                     }).each(function (l) {
-                        if (l.valueQuantity) {
+                        if (l.valueQuantity && l.referenceRange) {
                             var data = [];
                             var d = new XDate(l.appliesDateTime).addYears(4, true);
                             var flag = Number(l.valueQuantity.value) <= Number(l.referenceRange[0].low.value) || Number(l.valueQuantity.value) >= Number(l.referenceRange[0].high.value);
