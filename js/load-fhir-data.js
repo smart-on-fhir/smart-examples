@@ -8,11 +8,11 @@
 
       var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
       var birthday = new Date(patient.birthDate).toISOString();
-      var gender = patient.gender.coding[0];
+      var gender = patient.gender;
 
       dfd.resolve({
         name: name,
-        gender: gender.code == 'M' ? 'male' : 'female',
+        gender: gender,
         birthday: birthday
       });
 
