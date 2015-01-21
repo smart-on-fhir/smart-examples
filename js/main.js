@@ -182,8 +182,7 @@ var get_demographics = function(){
     patient.read().then(function(patient){
       pt.given_name = patient.name[0].given.join(" ");
       pt.family_name = patient.name[0].family.join(" ");
-      pt.gender = patient.gender.coding[0];
-      pt.gender = pt.gender.code == 'M' ? 'male' : 'female';
+      pt.gender = patient.gender;
       pt.bday = patient.birthDate;
       pt.mrn = patient.identifier[0].value;
       dfd.resolve();
