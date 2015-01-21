@@ -42,7 +42,7 @@ DMPatientServices.factory('$dmPatient', function () {
                         var m = med.contained[0];
                         var c = m.code.coding[0];
                         var inst = med.dosageInstruction[0];
-                        var startDate = inst.timingSchedule.event[0].start;
+                        var startDate = inst.scheduledTiming.event[0].start;
                         // TO DO: need to verify that c.system is RXNORM
                         
                         patient.medicines.push({ "rxCui": c.code, "rxName": m.name, "ins": inst.text, "startDate": startDate });
@@ -124,25 +124,12 @@ DMPatientServices.factory('$dmPatient', function () {
                 function doneAllergies(){
                     // TO DO: need to verify that coding systems etc
                 
-                    var startingpoint=$.Deferred();
-                    startingpoint.resolve();
-                
                     $.each(allAllergies, function (idx, a) {
-                        startingpoint=startingpoint.pipe(function() {
-                            return $.when(smart.followLink(a, a.reaction[0]), smart.followLink(a, a.substance))
-                              .then(function (r, s) {
-                                    //var allergen = a.drugClassAllergen || a.foodAllergen;
-                                    //if (allergen) {
-                                        var allergy = { "allergen": s.type.coding[0].display, "reaction": r.symptom[0].code.coding[0].display };
-                                        patient.allergies.push(allergy);
-                                    //}
-                              });
-                        });
+                        var allergy = { "allergen": a.substance.coding[0].display, "reaction": a.type };
+                        patient.allergies.push(allergy);
                     });
-
-                    startingpoint=startingpoint.pipe(function() {
-                        dfd.resolve();
-                    });
+                    
+                    dfd.resolve();
                 };
             }).promise();
         },
