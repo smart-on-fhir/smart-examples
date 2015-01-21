@@ -15,7 +15,7 @@ DMPatientServices.factory('$dmPatient', function () {
                 smart.context.patient.read().done(function (p) {
                     patient.familyName = p.name[0].family.join(" ");
                     patient.givenName = p.name[0].given.join(" ");
-                    patient.gender = (p.gender.coding[0].code == 'M') ? 'male' : 'female';
+                    patient.gender = p.gender;
                     patient.bday = p.birthDate;
                     dfd.resolve();
                 }).fail(function(e) {
