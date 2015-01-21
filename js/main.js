@@ -156,17 +156,17 @@ var get_medications = function(){
     patient.MedicationPrescription.search().then(function(rxs){
       _(rxs).each(function(rx){
         var instructions = rx.dosageInstruction[0].text;
-        if (!instructions && rx.dosageInstruction[0].timingSchedule.doseQuantity) {
-          instructions = rx.dosageInstruction[0].timingSchedule.doseQuantity.value+ 
-                        " " + rx.dosageInstruction[0].timingSchedule.doseQuantity.units+
+        if (!instructions && rx.dosageInstruction[0].doseQuantity) {
+          instructions = rx.dosageInstruction[0].doseQuantity.value+ 
+                        " " + rx.dosageInstruction[0].doseQuantity.units+
                         " " 
-                         rx.dosageInstruction[0].timingSchedule.repeat.frequency + 
+                         rx.dosageInstruction[0].scheduledTiming.repeat.frequency + 
                          " per " +
-                         rx.dosageInstruction[0].timingSchedule.repeat.duration + " " +
-                         rx.dosageInstruction[0].timingSchedule.repeat.units;
+                         rx.dosageInstruction[0].scheduledTiming.repeat.duration + " " +
+                         rx.dosageInstruction[0].scheduledTiming.repeat.units;
         }
         pt.meds_arr.push([
-          new XDate(rx.dosageInstruction[0].timingSchedule.event[0].start).valueOf(),
+          new XDate(rx.dosageInstruction[0].scheduledTiming.event[0].start).valueOf(),
           smart.cachedLink(rx, rx.medication).code.coding[0].display,
           rx.dosageInstruction && rx.dosageInstruction.text || ""
         ])
