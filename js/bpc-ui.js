@@ -26,6 +26,9 @@ if (!BPC) {
             if ( typeof FHIR === "undefined" ) {
                 $("#info").text("Error: SMART Connect interface not found");
             } else {
+                var hidePatientHeader = (smart.tokenResponse.need_patient_banner === "false");
+                BPC.settings.hide_patient_header = hidePatientHeader;
+            
                 // Fire up the SMART API calls and initialize the application asynchronously
                 $.when(BPC.get_demographics(), BPC.get_vitals())
                  .then( function (demographics, vitals) {
