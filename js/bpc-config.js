@@ -244,7 +244,7 @@ if (!BPC) {
     */
     BPC.getTermLabel = (function () {
     
-        var prefixSmart = "http://smartplatforms.org/terms/codes/",
+        var prefixSmart = "http://smarthealthit.org/terms/codes/",
             prefixSnomed = "http://purl.bioontology.org/ontology/SNOMEDCT/",
             codes = [];
             
