@@ -192,7 +192,7 @@ var get_demographics = function(){
 
 function itemByCode(from, toCode){
     var match = from.related.filter(function(e){
-      var matches = smart.cachedLink(from, e.target).name.coding.filter(function(c){
+      var matches = smart.cachedLink(from, e.target).code.coding.filter(function(c){
         return c.code == toCode;
       });
       return matches.length > 0;
@@ -205,13 +205,13 @@ var get_vital_sign_sets = function(){
    
     results = [];
     var vitals = patient.Observation.where
-      .nameIn('8480-6','8462-4','8302-2','3141-9','55284-4')
+      .codeIn('8480-6','8462-4','8302-2','3141-9','55284-4')
       .drain(function(batch){
         [].push.apply(results, batch);
        }); 
 
     vitals.then(function(){
-      var vitalsByCode = smart.byCode(results, 'name');
+      var vitalsByCode = smart.byCode(results, 'code');
 
       vitalsByCode['55284-4'].forEach(function(bp){
         var sys = itemByCode(bp, "8480-6");
@@ -301,7 +301,7 @@ var get_lab_results = function(){
    patient.Observation.drain(function(batch){
     [].push.apply(results, batch);
    }).then(function(){
-      var resultsByCode = smart.byCode(results, 'name');
+      var resultsByCode = smart.byCode(results, 'code');
 
       (function ldl(){
         // LOINC Code, Long name, Short Name, class, rank # of 2000
