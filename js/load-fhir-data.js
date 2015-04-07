@@ -33,7 +33,7 @@
 
     var vitals = {heightData: [], bpData: []};
 
-    var vitalsByCode = smart.byCode(db.observations, 'name');
+    var vitalsByCode = smart.byCode(db.observations, 'code');
 
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
@@ -46,7 +46,7 @@
 
       var components = smart.byCode(v.related.map(function(c){
         return smart.cachedLink(v, c.target);
-      }), 'name');
+      }), 'code');
 
       var diastolicObs = components["8462-4"][0];
       var systolicObs = components["8480-6"][0];
@@ -92,7 +92,7 @@
 
   function getObservations(){
     var loincs = ['8480-6','8462-4','8302-2','55284-4'];
-    return smart.context.patient.Observation.where.nameIn(loincs)
+    return smart.context.patient.Observation.where.codeIn(loincs)
     .drain(function(vs){
       db.observations = (db.observations || []); 
       [].push.apply(db.observations, vs)
