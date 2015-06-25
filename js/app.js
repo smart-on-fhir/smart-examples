@@ -15,7 +15,7 @@ $dmApp.config([
 
 $dmApp.run(function ($rootScope) {
     $rootScope.sharedVars = {
-        serviceBaseUrl: "//dm-service.smartplatforms.org",
+        serviceBaseUrl: "//dm-service.smarthealthit.org",
         servicePort: "",
         version: '0.1.95 alpha (incomplete, preview)', //version: 'V1.95',
         enableCart: false,
