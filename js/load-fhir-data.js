@@ -75,7 +75,7 @@
           });
       }
       if (v.bodySite) {
-        obj["bodySiteCode"] = v.bodySite.coding[0].system + v.bodySite.coding[0].code;
+        obj["bodySiteCode"] = v.bodySiteCodeableConcept.coding[0].system + v.bodySiteCodeableConcept.coding[0].code;
       }
 
       if (v.method) {
