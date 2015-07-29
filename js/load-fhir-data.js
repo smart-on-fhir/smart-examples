@@ -74,7 +74,7 @@
               }
           });
       }
-      if (v.bodySite) {
+      if (v.bodySiteCodeableConcept) {
         obj["bodySiteCode"] = v.bodySiteCodeableConcept.coding[0].system + v.bodySiteCodeableConcept.coding[0].code;
       }
 
