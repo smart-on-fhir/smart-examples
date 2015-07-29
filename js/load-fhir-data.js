@@ -61,10 +61,10 @@
       
       if (extensions) {
           $.each(extensions, function(index, extension){
-              if (extension.url === "http://fhir-registry.smarthealthit.org/Profile/vital-signs#position") {
+              if (extension.url === "http://fhir-registry.smarthealthit.org/StructureDefinition/vital-signs#position") {
                  var coding = extension.valueCodeableConcept.coding[0];
                  obj["bodyPositionCode"] = coding.system + coding.code;
-              } else if (extension.url === "http://fhir-registry.smarthealthit.org/Profile/vital-signs#encounter"){
+              } else if (extension.url === "http://fhir-registry.smarthealthit.org/StructureDefinition/vital-signs#encounter"){
                 var encounter = smart.cachedLink(v, extension.valueResource);
                 var encounter_type = encounter.class;
                 if (encounter_type === "outpatient") {
