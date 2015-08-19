@@ -4,8 +4,9 @@
   FhirLoader.demographics = function() {
     var dfd = $.Deferred();
 
-    smart.api.Patient.read().done(function(patient) {
+    smart.context.patient.read().done(function(pt) {
 
+      var patient = pt.entry[0].resource;
       var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
       var birthday = new Date(patient.birthDate).toISOString();
       var gender = patient.gender;
@@ -23,17 +24,32 @@
     return dfd.promise();
   };
 
-  var db = {}
-
   FhirLoader.vitals = function() {
-    return getObservations().pipe(getEncounters).pipe(processObservations);
+    var dfd = $.Deferred();
+    $.when(getObservations(),getEncounters()).then(function(observations,encounters) {
+        dfd.resolve(processObservations(observations,encounters));
+    });
+    return dfd.promise();
   }
+  
+  /*
+  function cachedLink(items, target) {
+    var match = null;
+    items.forEach(function(r) {
+        var rid = r.resourceType + '/' + r.id;
+        if (rid === target.reference) {
+            match = r;
+        }
+    });
+    return match;
+  }
+  */
 
-  function processObservations(){
+  function processObservations(observations, encounters){
 
     var vitals = {heightData: [], bpData: []};
 
-    var vitalsByCode = smart.byCode(db.observations, 'code');
+    var vitalsByCode = smart.byCode(observations, 'code');
 
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
@@ -45,7 +61,9 @@
     (vitalsByCode['55284-4']||[]).forEach(function(v){
 
       var components = smart.byCode(v.related.map(function(c){
-        return smart.cachedLink(v, c.target);
+        //return cachedLink(observations, c.target);
+        var a = smart.fhir.resolveSync({reference:c.target, resource:v});
+        return smart.fhir.resolveSync({reference:c.target, resource:v});
       }), 'code');
 
       var diastolicObs = components["8462-4"][0];
@@ -89,21 +107,49 @@
 
     return vitals;
   };
+  
+  function getNext (bundle) {
+        var i;
+        var d = bundle.entry;
+        var entries = [];
+        for (i = 0; i < d.length; i++) {
+            entries.push(d[i].resource);
+        }
+        var def = $.Deferred();
+        smart.fhir.nextPage({bundle:bundle}).then(function (r) {
+            $.when(getNext(r)).then(function (t) {
+                def.resolve(entries.concat(t));
+            });
+        }, function(err) {def.resolve(entries)});
+        return def.promise();
+  }
 
   function getObservations(){
-    var loincs = ['8480-6','8462-4','8302-2','55284-4'];
-    return smart.context.patient.Observation.where.codeIn(loincs)
-    .drain(function(vs){
-      db.observations = (db.observations || []); 
-      [].push.apply(db.observations, vs)
-    }, db);
+        var ret = new $.Deferred();
+        
+        smart.fhir.search({type: "Observation", 
+           query: {subject: {$type: 'Patient', id: {$exact: smart.patientId}}}
+        }).then(function(data){
+            $.when(getNext(data)).then(function(r) {
+                ret.resolve(r);
+            });
+        });
+          
+        return ret;
   };
   
   function getEncounters(){
-    return smart.context.patient.Encounter.where.drain(function(vs){
-      db.encounters = (db.encounters || []); 
-      [].push.apply(db.encounters, vs)
-    }, db);
-  };  
+        var ret = new $.Deferred();
+        
+        smart.fhir.search({type: "Encounter", 
+           query: {patient: {$type: 'Patient', id: {$exact: smart.patientId}}}
+        }).then(function(data){
+            $.when(getNext(data)).then(function(r) {
+                ret.resolve(r);
+            });
+        });
+          
+        return ret;
+  };
 
 })();
