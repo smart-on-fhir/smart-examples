@@ -1,10 +1,8 @@
-var cache = {};
-
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
 	else if(typeof define === 'function' && define.amd)
-		define(factory);
+		define([], factory);
 	else if(typeof exports === 'object')
 		exports["fhir"] = factory();
 	else
@@ -56,613 +54,305 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var $, adapter, auth, merge, mkFhir, searchByPatient, searchResultsAsGraph, utils;
+	(function() {
+	    var mkFhir = __webpack_require__(1);
 
-	mkFhir = __webpack_require__(1);
-
-	merge = __webpack_require__(5);
-
-	utils = __webpack_require__(4);
-
-	auth = __webpack_require__(15);
-
-	searchByPatient = __webpack_require__(17);
-
-	searchResultsAsGraph = __webpack_require__(18);
-
-	merge = __webpack_require__(5);
-
-	$ = jQuery;
-
-	adapter = {
-	  http: function(q) {
-	    var a;
-	    a = $.ajax({
-	      type: q.method,
-	      url: q.url,
-	      headers: q.headers,
-	      dataType: "json",
-	      contentType: "application/json",
-	      data: q.data || q.params
-	    });
-	    if (q.success) {
-	      a.done(function(data, status, xhr) {
-	        return q.success(data, status, xhr.getResponseHeader);
-	      });
-	    }
-	    if (q.error) {
-	      return a.fail(function() {
-	        return q.error.call(null, arguments);
-	      });
-	    }
-	  }
-	};
-
-	module.exports = function(config) {
-	  var defaultMiddlewares, defer, fhir, middlewares;
-	  defaultMiddlewares = {
-	    http: [auth],
-	    search: [searchByPatient, searchResultsAsGraph]
-	  };
-	  middlewares = utils.mergeLists(config.middlewares, defaultMiddlewares);
-	  config = merge(true, config, {
-	    middlewares: middlewares
-	  });
-	  fhir = mkFhir(config, adapter);
-	  defer = function(fname) {
-	    var fn;
-	    fn = fhir[fname];
-	    return function(args) {
-	      var ret;
-	      ret = $.Deferred();
-	      args.success = ret.resolve;
-	      args.error = ret.reject;
-	      fn(args);
-	      return ret;
+	    var defer = function(){
+	        pr = jQuery.Deferred();
+	        pr.promise = pr.promise();
+	        return pr;
 	    };
-	  };
-	  return ["search", "conformance", "document", "profile", "transaction", "history", "nextPage", "prevPage", "create", "read", "update", "delete", "vread", "resolve"].reduce((function(acc, v) {
-	    acc[v] = defer(v);
-	    return acc;
-	  }), {
-	    "resolveSync": fhir["resolveSync"]
-	  });
-	};
+	    var adapter = {
+	        defer: defer,
+	        http: function(args) {
+	            var ret = jQuery.Deferred();
+	            var opts = {
+	                type: args.method,
+	                url: args.url,
+	                headers: args.headers,
+	                dataType: "json",
+	                contentType: "application/json",
+	                data: args.data || args.params
+	            };
+	            jQuery.ajax(opts)
+	                .done(function(data, status, xhr) {ret.resolve({data: data, status: status, headers: xhr.getResponseHeader, config: args});})
+	                .fail(function(err) {ret.reject({error: err, data: err, config: args});});
+	            return ret.promise();
+	        }
+	    };
+
+	    var fhir = function(config) {
+	        return mkFhir(config, adapter);
+	    };
+	    fhir.defer = defer;
+	    module.exports = fhir;
+
+	}).call(this);
 
 
 /***/ },
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var conf, crud, document, fhir, history, merge, resolve, search, tags, transaction, utils, wrap;
+	(function() {
+	    var utils = __webpack_require__(2);
+	    var M = __webpack_require__(5);
+	    var query = __webpack_require__(6);
+	    var auth = __webpack_require__(7);
+	    var transport = __webpack_require__(9);
+	    var errors = __webpack_require__(10);
+	    var config = __webpack_require__(11);
+	    var bundle = __webpack_require__(12);
+	    var pt = __webpack_require__(13);
+	    var refs = __webpack_require__(14);
+	    var url = __webpack_require__(15);
 
-	search = __webpack_require__(2);
+	    var cache = {};
 
-	conf = __webpack_require__(7);
 
-	document = __webpack_require__(8);
+	    var fhir = function(cfg, adapter){
+	        var Middleware = M.Middleware;
+	        var $$Attr = M.$$Attr;
 
-	transaction = __webpack_require__(9);
+	        var $$Method = function(m){ return $$Attr('method', m);};
+	        var $$Header = function(h,v) {return $$Attr('headers.' + h, v);};
 
-	tags = __webpack_require__(10);
+	        var $Errors = Middleware(errors);
+	        var Defaults = Middleware(config(cfg, adapter))
+	                .and($Errors)
+	                .and(auth.$Basic)
+	                .and(auth.$Bearer)
+	                .and(transport.$JsonData)
+	                .and($$Header('Accept', 'application/json'))
+	                .and($$Header('Content-Type', 'application/json'));
 
-	history = __webpack_require__(11);
+	        var GET = Defaults.and($$Method('GET'));
+	        var POST = Defaults.and($$Method('POST'));
+	        var PUT = Defaults.and($$Method('PUT'));
+	        var DELETE = Defaults.and($$Method('DELETE'));
 
-	crud = __webpack_require__(12);
+	        var http = transport.Http(cfg, adapter);
 
-	wrap = __webpack_require__(13);
+	        var Path = url.Path;
+	        var BaseUrl = Path(cfg.baseUrl);
+	        var resourceTypePath = BaseUrl.slash(":type || :resource.resourceType");
+	        var searchPath = resourceTypePath.slash("_search");
+	        var resourceTypeHxPath = resourceTypePath.slash("_history");
+	        var resourcePath = resourceTypePath.slash(":id || :resource.id");
+	        var resourceHxPath = resourcePath.slash("_history");
+	        var vreadPath =  resourceHxPath.slash(":versionId || :resource.meta.versionId");
+	        var resourceVersionPath = resourceHxPath.slash(":versionId || :resource.meta.versionId");
 
-	utils = __webpack_require__(4);
+	        var ReturnHeader = $$Header('Prefer', 'return=representation');
 
-	resolve = __webpack_require__(14);
+	        var $Paging = Middleware(query.$Paging);
 
-	merge = __webpack_require__(5);
+	        return {
+	            conformance: GET.and(BaseUrl.slash("metadata")).end(http),
+	            document: POST.and(BaseUrl.slash("Document")).end(http),
+	            profile:  GET.and(BaseUrl.slash("Profile").slash(":type")).end(http),
+	            transaction: POST.and(BaseUrl).end(http),
+	            history: GET.and(BaseUrl.slash("_history")).and($Paging).end(http),
+	            typeHistory: GET.and(resourceTypeHxPath).and($Paging).end(http),
+	            resourceHistory: GET.and(resourceHxPath).and($Paging).end(http),
+	            read: GET.and(resourcePath).end(http),
+	            vread: GET.and(vreadPath).end(http),
+	            "delete": DELETE.and(resourcePath).and(ReturnHeader).end(http),
+	            create: POST.and(resourceTypePath).and(ReturnHeader).end(http),
+	            validate: POST.and(resourceTypePath.slash("_validate")).end(http),
+	            search: GET.and(searchPath).and(pt.$WithPatient).and(query.$SearchParams).and($Paging).end(http),
+	            update: PUT.and(resourcePath).and(ReturnHeader).end(http),
+	            nextPage: GET.and(bundle.$$BundleLinkUrl("next")).end(http),
+	            prevPage: GET.and(bundle.$$BundleLinkUrl("prev")).end(http),
+	            resolve: GET.and(refs.resolve).end(http)
+	        };
 
-	fhir = function(cfg, adapter) {
-	  var baseUrl, deps, depsWithCache, http, middlewares;
-	  middlewares = cfg.middlewares || {};
-	  http = wrap(cfg, adapter.http, middlewares.http);
-	  baseUrl = cfg.baseUrl;
-	  deps = function(opt) {
-	    return merge(true, opt, {
-	      baseUrl: baseUrl,
-	      http: http
-	    });
-	  };
-	  depsWithCache = function(opt) {
-	    return merge(true, opt, {
-	      baseUrl: baseUrl,
-	      http: http,
-	      cache: cfg.cache || cache
-	    });
-	  };
-	  return {
-	    search: function(opt) {
-	      var wrapped;
-	      wrapped = wrap(cfg, search.search, middlewares.search);
-	      return wrapped(merge(true, opt, {
-	        baseUrl: baseUrl,
-	        http: http,
-            cache: cfg.cache || cache
-	      }));
-	    },
-	    nextPage: function(opt) {
-	      return search.next(depsWithCache(opt));
-	    },
-	    prevPage: function(opt) {
-	      return search.prev(depsWithCache(opt));
-	    },
-	    conformance: function(opt) {
-	      return conf.conformance(deps(opt));
-	    },
-	    document: function(opt) {
-	      return conf.document(deps(opt));
-	    },
-	    profile: function(opt) {
-	      return conf.profile(deps(opt));
-	    },
-	    transaction: function(opt) {
-	      return transaction(deps(opt));
-	    },
-	    history: function(opt) {
-	      return history(deps(opt));
-	    },
-	    create: function(opt) {
-	      return crud.create(deps(opt));
-	    },
-	    validate: function(opt) {
-	      return crud.validate(deps(opt));
-	    },
-	    read: function(opt) {
-	      return crud.read(deps(opt));
-	    },
-	    update: function(opt) {
-	      return crud.update(deps(opt));
-	    },
-	    "delete": function(opt) {
-	      return crud["delete"](deps(opt));
-	    },
-	    tags: function(opt) {
-	      return tags.tags(deps(opt));
-	    },
-	    affixTags: function(opt) {
-	      return tags.affixTags(deps(opt));
-	    },
-	    removeTags: function(opt) {
-	      return tags.removeTags(deps(opt));
-	    },
-	    resolve: function(opt) {
-	      return resolve.async(depsWithCache(opt));
-	    },
-	    resolveSync: function(opt) {
-	      return resolve.sync(depsWithCache(opt));
-	    }
-	  };
-	};
-
-	module.exports = fhir;
+	    };
+	    module.exports = fhir;
+	}).call(this);
 
 
 /***/ },
 /* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var doGet, getRel, queryBuider, search, utils;
+	(function() {
+	  var merge = __webpack_require__(3);
 
-	queryBuider = __webpack_require__(3);
-    utils = __webpack_require__(4);
+	  var RTRIM = /^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g;
 
-	doGet = function(http, uri, success, error, baseUrl, cache2) {
-	  return http({
-	    method: 'GET',
-	    url: uri,
-	    success: function (bundle) {
-            bundle.entry.forEach(function(e) {
-                var url = utils.absoluteUrl(baseUrl, e.resource.resourceType + "/" + e.resource.id);
-                cache[url] = e.resource;
-            });
-            if (success) success (bundle);
-        },
-	    error: error || function() {}
-	  });
-	};
-
-	search = (function(_this) {
-	  return function(arg) {
-	    var baseUrl, error, http, query, queryStr, success, type, uri;
-	    baseUrl = arg.baseUrl, http = arg.http, type = arg.type, query = arg.query, cache = arg.cache, success = arg.success, error = arg.error;
-	    queryStr = queryBuider.query(query);
-	    uri = baseUrl + "/" + type + "/_search?" + queryStr;
-	    return doGet(http, uri, success, error, baseUrl, cache);
+	  var trim = function(text) {
+	    return text ? text.toString().replace(RTRIM, "")  : "";
 	  };
-	})(this);
 
-	getRel = function(rel) {
-	  return function(arg) {
-	    var baseUrl, bundle, error, http, l, success, urls;
-	    baseUrl = arg.baseUrl, http = arg.http, bundle = arg.bundle, cache = arg.cache, success = arg.success, error = arg.error;
-	    urls = (function() {
-	      var i, len, ref, results;
-	      ref = bundle != null ? bundle.link : void 0;
+	  exports.trim = trim;
+
+	  var addKey = function(acc, str) {
+	    var pair, val;
+	    if (!str) {
+	      return null;
+	    }
+	    pair = str.split("=").map(trim);
+	    val = pair[1].replace(/(^"|"$)/g, '');
+	    if (val) {
+	      acc[pair[0]] = val;
+	    }
+	    return acc;
+	  };
+
+	  var type = function(obj) {
+	    var classToType;
+	    if (obj == null && obj === undefined) {
+	      return String(obj);
+	    }
+	    classToType = {
+	      '[object Boolean]': 'boolean',
+	      '[object Number]': 'number',
+	      '[object String]': 'string',
+	      '[object Function]': 'function',
+	      '[object Array]': 'array',
+	      '[object Date]': 'date',
+	      '[object RegExp]': 'regexp',
+	      '[object Object]': 'object'
+	    };
+	    return classToType[Object.prototype.toString.call(obj)];
+	  };
+
+	  exports.type = type;
+
+	  var assertArray = function(a) {
+	    if (type(a) !== 'array') {
+	      throw 'not array';
+	    }
+	    return a;
+	  };
+
+	  exports.assertArray = assertArray;
+
+	  var assertObject = function(a) {
+	    if (type(a) !== 'object') {
+	      throw 'not object';
+	    }
+	    return a;
+	  };
+
+	  exports.assertObject = assertObject;
+
+	  var reduceMap = function(m, fn, acc) {
+	    var k, v;
+	    acc || (acc = []);
+	    assertObject(m);
+	    return ((function() {
+	      var results;
 	      results = [];
-	      for (i = 0, len = ref.length; i < len; i++) {
-	        l = ref[i];
-	        if (l.relation === rel) {
-	          results.push(l.url);
-	        }
+	      for (k in m) {
+	        v = m[k];
+	        results.push([k, v]);
 	      }
 	      return results;
-	    })();
-	    if (urls.length !== 1) {
-	      return error("No " + rel + " link found in bundle");
+	    })()).reduce(fn, acc);
+	  };
+
+	  exports.reduceMap = reduceMap;
+
+	  var identity = function(x) {return x;};
+
+	  exports.identity = identity;
+
+	  var argsArray = function() {
+	     return Array.prototype.slice.call(arguments)
+	  };
+
+	  exports.argsArray = argsArray;
+
+	  var mergeLists = function() {
+	    var reduce;
+	    reduce = function(merged, nextMap) {
+	      var k, ret, v;
+	      ret = merge(true, merged);
+	      for (k in nextMap) {
+	        v = nextMap[k];
+	        ret[k] = (ret[k] || []).concat(v);
+	      }
+	      return ret;
+	    };
+	    return argsArray.apply(null, arguments).reduce(reduce, {});
+	  };
+
+	  exports.mergeLists = mergeLists;
+
+	  var absoluteUrl = function(baseUrl, ref) {
+	    if (ref.slice(ref, baseUrl.length + 1) !== baseUrl + "/") {
+	      return baseUrl + "/" + ref;
 	    } else {
-	      return doGet(http, urls[0], success, error, baseUrl, cache);
+	      return ref;
 	    }
 	  };
-	};
 
-	module.exports.search = search;
+	  exports.absoluteUrl = absoluteUrl;
 
-	module.exports.next = getRel("next");
+	  var relativeUrl = function(baseUrl, ref) {
+	    if (ref.slice(ref, baseUrl.length + 1) === baseUrl + "/") {
+	      return ref.slice(baseUrl.length + 1);
+	    } else {
+	      return ref;
+	    }
+	  };
 
-	module.exports.prev = getRel("prev");
+	  exports.relativeUrl = relativeUrl;
+
+	  exports.resourceIdToUrl = function(id, baseUrl, type) {
+	    baseUrl = baseUrl.replace(/\/$/, '');
+	    id = id.replace(/^\//, '');
+	    if (id.indexOf('/') < 0) {
+	      return baseUrl + "/" + type + "/" + id;
+	    } else if (id.indexOf(baseUrl) !== 0) {
+	      return baseUrl + "/" + id;
+	    } else {
+	      return id;
+	    }
+	  };
+
+	  var walk = function(inner, outer, data, context) {
+	    var keysToMap, remapped;
+	    switch (type(data)) {
+	      case 'array':
+	        return outer(data.map(function(item) {
+	          return inner(item, [data, context]);
+	        }), context);
+	      case 'object':
+	        keysToMap = function(acc, arg) {
+	          var k, v;
+	          k = arg[0], v = arg[1];
+	          acc[k] = inner(v, [data].concat(context));
+	          return acc;
+	        };
+	        remapped = reduceMap(data, keysToMap, {});
+	        return outer(remapped, context);
+	      default:
+	        return outer(data, context);
+	    }
+	  };
+
+	  exports.walk = walk;
+
+	  var postwalk = function(f, data, context) {
+	    if (!data) {
+	      return function(data, context) {
+	        return postwalk(f, data, context);
+	      };
+	    } else {
+	      return walk(postwalk(f), f, data, context);
+	    }
+	  };
+
+	  exports.postwalk = postwalk;
+
+	}).call(this);
 
 
 /***/ },
 /* 3 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var MODIFIERS, OPERATORS, assertArray, assertObject, buildSearchParams, expandParam, handleInclude, handleSort, identity, isOperator, linearizeOne, linearizeParams, reduceMap, type, utils;
-
-	utils = __webpack_require__(4);
-
-	type = utils.type;
-
-	assertArray = utils.assertArray;
-
-	assertObject = utils.assertObject;
-
-	reduceMap = utils.reduceMap;
-
-	identity = utils.identity;
-
-	OPERATORS = {
-	  $gt: '>',
-	  $lt: '<',
-	  $lte: '<=',
-	  $gte: '>='
-	};
-
-	MODIFIERS = {
-	  $asc: ':asc',
-	  $desc: ':desc',
-	  $exact: ':exact',
-	  $missing: ':missing',
-	  $null: ':missing',
-	  $text: ':text'
-	};
-
-	isOperator = function(v) {
-	  return v.indexOf('$') === 0;
-	};
-
-	expandParam = function(k, v) {
-	  return reduceMap(v, function(acc, arg) {
-	    var kk, o, res, vv;
-	    kk = arg[0], vv = arg[1];
-	    return acc.concat(kk === '$and' ? assertArray(vv).reduce((function(a, vvv) {
-	      return a.concat(linearizeOne(k, vvv));
-	    }), []) : kk === '$type' ? [] : isOperator(kk) ? (o = {
-	      param: k
-	    }, kk === '$or' ? o.value = vv : (OPERATORS[kk] ? o.operator = OPERATORS[kk] : void 0, MODIFIERS[kk] ? o.modifier = MODIFIERS[kk] : void 0, type(vv) === 'object' && vv.$or ? o.value = vv.$or : o.value = [vv]), [o]) : (v.$type ? res = ":" + v.$type : void 0, linearizeOne("" + k + (res || '') + "." + kk, vv)));
-	  });
-	};
-
-	handleSort = function(xs) {
-	  var i, len, results, x;
-	  assertArray(xs);
-	  results = [];
-	  for (i = 0, len = xs.length; i < len; i++) {
-	    x = xs[i];
-	    switch (type(x)) {
-	      case 'array':
-	        results.push({
-	          param: '_sort',
-	          value: x[0],
-	          modifier: ":" + x[1]
-	        });
-	        break;
-	      case 'string':
-	        results.push({
-	          param: '_sort',
-	          value: x
-	        });
-	        break;
-	      default:
-	        results.push(void 0);
-	    }
-	  }
-	  return results;
-	};
-
-	handleInclude = function(includes) {
-	  return reduceMap(includes, function(acc, arg) {
-	    var k, v;
-	    k = arg[0], v = arg[1];
-	    return acc.concat((function() {
-	      switch (type(v)) {
-	        case 'array':
-	          return v.map(function(x) {
-	            return {
-	              param: '_include',
-	              value: k + "." + x
-	            };
-	          });
-	        case 'string':
-	          return [
-	            {
-	              param: '_include',
-	              value: k + "." + v
-	            }
-	          ];
-	      }
-	    })());
-	  });
-	};
-
-	linearizeOne = function(k, v) {
-	  if (k === '$sort') {
-	    return handleSort(v);
-	  } else if (k === '$include') {
-	    return handleInclude(v);
-	  } else {
-	    switch (type(v)) {
-	      case 'object':
-	        return expandParam(k, v);
-	      case 'string':
-	        return [
-	          {
-	            param: k,
-	            value: [v]
-	          }
-	        ];
-	      case 'number':
-	        return [
-	          {
-	            param: k,
-	            value: [v]
-	          }
-	        ];
-	      case 'array':
-	        return [
-	          {
-	            param: k,
-	            value: [v.join("|")]
-	          }
-	        ];
-	      default:
-	        throw "could not linearizeParams " + (type(v));
-	    }
-	  }
-	};
-
-	linearizeParams = function(query) {
-	  return reduceMap(query, function(acc, arg) {
-	    var k, v;
-	    k = arg[0], v = arg[1];
-	    return acc.concat(linearizeOne(k, v));
-	  });
-	};
-
-	buildSearchParams = function(query) {
-	  var p, ps;
-	  ps = (function() {
-	    var i, len, ref, results;
-	    ref = linearizeParams(query);
-	    results = [];
-	    for (i = 0, len = ref.length; i < len; i++) {
-	      p = ref[i];
-	      results.push([p.param, p.modifier, '=', p.operator, encodeURIComponent(p.value)].filter(identity).join(''));
-	    }
-	    return results;
-	  })();
-	  return ps.join("&");
-	};
-
-	exports._query = linearizeParams;
-
-	exports.query = buildSearchParams;
-
-
-/***/ },
-/* 4 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var RTRIM, absoluteUrl, addKey, argsArray, assertArray, assertObject, identity, merge, mergeLists, postwalk, reduceMap, relativeUrl, trim, type, walk,
-	  slice = [].slice;
-
-	merge = __webpack_require__(5);
-
-	RTRIM = /^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g;
-
-	trim = function(text) {
-	  if (text != null) {
-	    return (text + "").replace(RTRIM, "");
-	  } else {
-	    return "";
-	  }
-	};
-
-	exports.trim = trim;
-
-	addKey = function(acc, str) {
-	  var pair, val;
-	  if (!str) {
-	    return;
-	  }
-	  pair = str.split("=").map(trim);
-	  val = pair[1].replace(/(^"|"$)/g, '');
-	  if (val) {
-	    acc[pair[0]] = val;
-	  }
-	  return acc;
-	};
-
-	type = function(obj) {
-	  var classToType;
-	  if (obj === void 0 || obj === null) {
-	    return String(obj);
-	  }
-	  classToType = {
-	    '[object Boolean]': 'boolean',
-	    '[object Number]': 'number',
-	    '[object String]': 'string',
-	    '[object Function]': 'function',
-	    '[object Array]': 'array',
-	    '[object Date]': 'date',
-	    '[object RegExp]': 'regexp',
-	    '[object Object]': 'object'
-	  };
-	  return classToType[Object.prototype.toString.call(obj)];
-	};
-
-	exports.type = type;
-
-	assertArray = function(a) {
-	  if (type(a) !== 'array') {
-	    throw 'not array';
-	  }
-	  return a;
-	};
-
-	exports.assertArray = assertArray;
-
-	assertObject = function(a) {
-	  if (type(a) !== 'object') {
-	    throw 'not object';
-	  }
-	  return a;
-	};
-
-	exports.assertObject = assertObject;
-
-	reduceMap = function(m, fn, acc) {
-	  var k, v;
-	  acc || (acc = []);
-	  assertObject(m);
-	  return ((function() {
-	    var results;
-	    results = [];
-	    for (k in m) {
-	      v = m[k];
-	      results.push([k, v]);
-	    }
-	    return results;
-	  })()).reduce(fn, acc);
-	};
-
-	exports.reduceMap = reduceMap;
-
-	identity = function(x) {
-	  return x;
-	};
-
-	exports.identity = identity;
-
-	argsArray = function() {
-	  var args;
-	  args = 1 <= arguments.length ? slice.call(arguments, 0) : [];
-	  return args;
-	};
-
-	exports.argsArray = argsArray;
-
-	mergeLists = function() {
-	  var reduce;
-	  reduce = function(merged, nextMap) {
-	    var k, ret, v;
-	    ret = merge(true, merged);
-	    for (k in nextMap) {
-	      v = nextMap[k];
-	      ret[k] = (ret[k] || []).concat(v);
-	    }
-	    return ret;
-	  };
-	  return argsArray.apply(null, arguments).reduce(reduce, {});
-	};
-
-	exports.mergeLists = mergeLists;
-
-	absoluteUrl = function(baseUrl, ref) {
-	  if (ref.slice(ref, baseUrl.length + 1) !== baseUrl + "/") {
-	    return baseUrl + "/" + ref;
-	  } else {
-	    return ref;
-	  }
-	};
-
-	exports.absoluteUrl = absoluteUrl;
-
-	relativeUrl = function(baseUrl, ref) {
-	  if (ref.slice(ref, baseUrl.length + 1) === baseUrl + "/") {
-	    return ref.slice(baseUrl.length + 1);
-	  } else {
-	    return ref;
-	  }
-	};
-
-	exports.relativeUrl = relativeUrl;
-
-	exports.resourceIdToUrl = function(id, baseUrl, type) {
-	  baseUrl = baseUrl.replace(/\/$/, '');
-	  id = id.replace(/^\//, '');
-	  if (id.indexOf('/') < 0) {
-	    return baseUrl + "/" + type + "/" + id;
-	  } else if (id.indexOf(baseUrl) !== 0) {
-	    return baseUrl + "/" + id;
-	  } else {
-	    return id;
-	  }
-	};
-
-	walk = function(inner, outer, data, context) {
-	  var keysToMap, remapped;
-	  switch (type(data)) {
-	    case 'array':
-	      return outer(data.map(function(item) {
-	        return inner(item, [data, context]);
-	      }), context);
-	    case 'object':
-	      keysToMap = function(acc, arg) {
-	        var k, v;
-	        k = arg[0], v = arg[1];
-	        acc[k] = inner(v, [data].concat(context));
-	        return acc;
-	      };
-	      remapped = reduceMap(data, keysToMap, {});
-	      return outer(remapped, context);
-	    default:
-	      return outer(data, context);
-	  }
-	};
-
-	exports.walk = walk;
-
-	postwalk = function(f, data, context) {
-	  if (!data) {
-	    return function(data, context) {
-	      return postwalk(f, data, context);
-	    };
-	  } else {
-	    return walk(postwalk(f), f, data, context);
-	  }
-	};
-
-	exports.postwalk = postwalk;
-
-
-/***/ },
-/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/* WEBPACK VAR INJECTION */(function(module) {/*!
@@ -746,10 +436,10 @@ return /******/ (function(modules) { // webpackBootstrap
 		}
 
 	})(typeof module === 'object' && module && typeof module.exports === 'object' && module.exports);
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(6)(module)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(4)(module)))
 
 /***/ },
-/* 6 */
+/* 4 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -765,610 +455,313 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 7 */
-/***/ function(module, exports) {
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
 
-	var conformance, profile;
+	(function() {
+	    var utils = __webpack_require__(2);
 
-	conformance = function(arg) {
-	  var baseUrl, error, http, success;
-	  baseUrl = arg.baseUrl, http = arg.http, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/metadata",
-	    success: success,
-	    error: error
-	  });
-	};
+	    var id = function(x){return x;};
+	    var constantly = function(x){return function(){return x;};};
 
-	profile = (function(_this) {
-	  return function(arg) {
-	    var baseUrl, error, http, success, type;
-	    baseUrl = arg.baseUrl, http = arg.http, type = arg.type, success = arg.success, error = arg.error;
-	    return http({
-	      method: 'GET',
-	      url: baseUrl + "/Profile/" + type,
-	      success: success,
-	      error: error
+	    var mwComposition = function(mw1, mw2){
+	        return function(h){ return mw1(mw2(h)); };
+	    };
+
+	    var Middleware = function(mw){
+	        mw.and = function(nmw){
+	            return Middleware(mwComposition(mw, nmw));
+	        };
+	        mw.end = function(h){
+	            return mw(h);
+	        };
+	        return mw;
+	    };
+
+	    // generate wm from function
+	    exports.$$Simple = function(f){
+	        return function(h){
+	            return function(args){
+	                return h(f(args));
+	            };
+	        };
+	    };
+
+	    var setAttr = function(args, attr, value){
+	        var path = attr.split('.');
+	        var obj = args;
+	        for(var i = 0; i < (path.length - 1); i++){
+	            var k = path[i];
+	            obj = args[k];
+	            if(!obj){
+	                obj = {};
+	                args[k] = obj;
+	            }
+	        }
+	        obj[path[path.length - 1]] = value;
+	        return args;
+	    };
+
+	    // generate wm from function
+	    exports.$$Attr = function(attr, fn){
+	        return Middleware(function(h){
+	            return function(args) {
+	                var value = null;
+	                if(utils.type(fn) == 'function'){
+	                   value = fn(args);
+	                } else {
+	                    value = fn;
+	                }
+	                if(value == null && value == undefined){
+	                    return h(args);
+	                }else {
+	                    return h(setAttr(args, attr, value));
+	                }
+	            };
+	        });
+	    };
+
+	    var Attribute = function(attr, fn){
+	        return Middleware(function(h){
+	            return function(args) {
+	                args[attr] = fn(args);
+	                return h(args);
+	            };
+	        });
+	    };
+
+	    var Method = function(method){
+	        return Attribute('method', constantly(method));
+	    };
+
+	    exports.Middleware = Middleware;
+	    exports.Attribute = Attribute;
+	    exports.Method = Method;
+
+	}).call(this);
+
+
+/***/ },
+/* 6 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function() {
+	    var utils = __webpack_require__(2);
+
+	    var type = utils.type;
+
+	    var assertArray = utils.assertArray;
+
+	    var assertObject = utils.assertObject;
+
+	    var reduceMap = utils.reduceMap;
+
+	    var identity = utils.identity;
+
+	    var OPERATORS = {
+	        $gt: '>',
+	        $lt: '<',
+	        $lte: '<=',
+	        $gte: '>='
+	    };
+
+	    var MODIFIERS = {
+	        $asc: ':asc',
+	        $desc: ':desc',
+	        $exact: ':exact',
+	        $missing: ':missing',
+	        $null: ':missing',
+	        $text: ':text'
+	    };
+
+	    var isOperator = function(v) {
+	        return v.indexOf('$') === 0;
+	    };
+
+	    var expandParam = function(k, v) {
+	        return reduceMap(v, function(acc, arg) {
+	            var kk, o, res, vv;
+	            kk = arg[0], vv = arg[1];
+	            return acc.concat(kk === '$and' ? assertArray(vv).reduce((function(a, vvv) {
+	                return a.concat(linearizeOne(k, vvv));
+	            }), []) : kk === '$type' ? [] : isOperator(kk) ? (o = {
+	                param: k
+	            }, kk === '$or' ? o.value = vv : (OPERATORS[kk] ? o.operator = OPERATORS[kk] : void 0, MODIFIERS[kk] ? o.modifier = MODIFIERS[kk] : void 0, type(vv) === 'object' && vv.$or ? o.value = vv.$or : o.value = [vv]), [o]) : (v.$type ? res = ":" + v.$type : void 0, linearizeOne("" + k + (res || '') + "." + kk, vv)));
+	        });
+	    };
+
+	    var handleSort = function(xs) {
+	        var i, len, results, x;
+	        assertArray(xs);
+	        results = [];
+	        for (i = 0, len = xs.length; i < len; i++) {
+	            x = xs[i];
+	            switch (type(x)) {
+	            case 'array':
+	                results.push({
+	                    param: '_sort',
+	                    value: x[0],
+	                    modifier: ":" + x[1]
+	                });
+	                break;
+	            case 'string':
+	                results.push({
+	                    param: '_sort',
+	                    value: x
+	                });
+	                break;
+	            default:
+	                results.push(void 0);
+	            }
+	        }
+	        return results;
+	    };
+
+	    var handleInclude = function(includes) {
+	        return reduceMap(includes, function(acc, arg) {
+	            var k, v;
+	            k = arg[0], v = arg[1];
+	            return acc.concat((function() {
+	                switch (type(v)) {
+	                case 'array':
+	                    return v.map(function(x) {
+	                        return {
+	                            param: '_include',
+	                            value: k + "." + x
+	                        };
+	                    });
+	                case 'string':
+	                    return [
+	                        {
+	                            param: '_include',
+	                            value: k + "." + v
+	                        }
+	                    ];
+	                }
+	            })());
+	        });
+	    };
+
+	    var linearizeOne = function(k, v) {
+	        if (k === '$sort') {
+	            return handleSort(v);
+	        } else if (k === '$include') {
+	            return handleInclude(v);
+	        } else {
+	            switch (type(v)) {
+	            case 'object':
+	                return expandParam(k, v);
+	            case 'string':
+	                return [
+	                    {
+	                        param: k,
+	                        value: [v]
+	                    }
+	                ];
+	            case 'number':
+	                return [
+	                    {
+	                        param: k,
+	                        value: [v]
+	                    }
+	                ];
+	            case 'array':
+	                return [
+	                    {
+	                        param: k,
+	                        value: [v.join("|")]
+	                    }
+	                ];
+	            default:
+	                throw "could not linearizeParams " + (type(v));
+	            }
+	        }
+	    };
+
+	    var linearizeParams = function(query) {
+	        return reduceMap(query, function(acc, arg) {
+	            var k, v;
+	            k = arg[0], v = arg[1];
+	            return acc.concat(linearizeOne(k, v));
+	        });
+	    };
+
+	    var buildSearchParams = function(query) {
+	        var p, ps;
+	        ps = (function() {
+	            var i, len, ref, results;
+	            ref = linearizeParams(query);
+	            results = [];
+	            for (i = 0, len = ref.length; i < len; i++) {
+	                p = ref[i];
+	                results.push([p.param, p.modifier, '=', p.operator, encodeURIComponent(p.value)].filter(identity).join(''));
+	            }
+	            return results;
+	        })();
+	        return ps.join("&");
+	    };
+
+	    exports._query = linearizeParams;
+
+	    exports.query = buildSearchParams;
+
+	    var mw = __webpack_require__(5);
+
+	    exports.$SearchParams = mw.$$Attr('url', function(args){
+	        var url = args.url;
+	        if(args.query){
+	             var queryStr = buildSearchParams(args.query);
+	             return url + "?" + queryStr;
+	        }
+	        return url;
 	    });
-	  };
-	})(this);
 
-	exports.conformance = conformance;
 
-	exports.profile = profile;
+	    exports.$Paging = function(h){
+	        return function(args){
+	            var params = args.params || {};
+	            if(args.since){params._since = args.since;}
+	            if(args.count){params._count = args.count;}
+	            args.params = params;
+	            return h(args);
+	        };
+	    };
+
+
+	}).call(this);
+
+
+/***/ },
+/* 7 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function() {
+	    var mw = __webpack_require__(5);
+
+	    var btoa = __webpack_require__(8).btoa;
+
+	    exports.$Basic = mw.$$Attr('headers.Authorization', function(args){
+	        if(args.auth && args.auth.user && args.auth.pass){
+	            return "Basic " + btoa(args.auth.user + ":" + args.auth.pass);
+	        }
+	    });
+
+	    exports.$Bearer = mw.$$Attr('headers.Authorization', function(args){
+	        if(args.auth && args.auth.bearer){
+	            return "Bearer " + args.auth.bearer;
+	        }
+	    });
+
+	}).call(this);
 
 
 /***/ },
 /* 8 */
-/***/ function(module, exports) {
-
-	var document;
-
-	document = (function(_this) {
-	  return function(arg) {
-	    var baseUrl, bundle, error, http, success;
-	    baseUrl = arg.baseUrl, http = arg.http, bundle = arg.bundle, success = arg.success, error = arg.error;
-	    return http({
-	      method: 'POST',
-	      url: baseUrl + '/Document',
-	      data: bundle,
-	      success: success,
-	      error: error
-	    });
-	  };
-	})(this);
-
-	module.exports = document;
-
-
-/***/ },
-/* 9 */
-/***/ function(module, exports) {
-
-	var transaction;
-
-	transaction = (function(_this) {
-	  return function(arg) {
-	    var baseUrl, bundle, error, http, success;
-	    baseUrl = arg.baseUrl, http = arg.http, bundle = arg.bundle, success = arg.success, error = arg.error;
-	    return http({
-	      method: 'POST',
-	      url: baseUrl,
-	      data: bundle,
-	      success: success,
-	      error: error
-	    });
-	  };
-	})(this);
-
-	module.exports = transaction;
-
-
-/***/ },
-/* 10 */
-/***/ function(module, exports) {
-
-	var affixTags, affixTagsToResource, affixTagsToResourceVersion, buildTags, removeTags, removeTagsFromResource, removeTagsFromResourceVersion, tags, tagsAll, tagsResource, tagsResourceType, tagsResourceVersion;
-
-	tagsAll = function(arg) {
-	  var baseUrl, error, http, success;
-	  baseUrl = arg.baseUrl, http = arg.http, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/_tags",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	tagsResourceType = function(arg) {
-	  var baseUrl, error, http, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/" + type + "/_tags",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	tagsResource = function(arg) {
-	  var baseUrl, error, http, id, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/" + type + "/" + id + "/_tags",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	tagsResourceVersion = function(arg) {
-	  var baseUrl, error, http, id, success, type, vid;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, vid = arg.vid, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/" + type + "/" + id + "/_history/" + vid + "/_tags",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	tags = function(q) {
-	  if ((q.vid != null) && (q.id != null) && (q.type != null)) {
-	    return tagsResourceVersion(q);
-	  } else if ((q.id != null) && (q.type != null)) {
-	    return tagsResource(q);
-	  } else if (q.type != null) {
-	    return tagsResourceType(q);
-	  } else {
-	    return tagsAll(q);
-	  }
-	};
-
-	buildTags = function(tags) {
-	  return tags.filter(function(i) {
-	    return $.trim(i.term);
-	  }).map(function(i) {
-	    return i.term + "; scheme=\"" + i.scheme + "\"; label=\"" + i.label + "\"";
-	  }).join(",");
-	};
-
-	affixTagsToResource = function(arg) {
-	  var baseUrl, error, headers, http, id, success, tagHeader, tags, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, tags = arg.tags, success = arg.success, error = arg.error;
-	  headers = {};
-	  tagHeader = buildTags(tags);
-	  if (tagHeader) {
-	    headers["Category"] = tagHeader;
-	    return http({
-	      method: 'POST',
-	      url: baseUrl + "/" + type + "/" + id + "/_tags",
-	      headers: headers,
-	      success: success,
-	      error: error
-	    });
-	  } else {
-	    return console.log('Empty tags');
-	  }
-	};
-
-	affixTagsToResourceVersion = function(arg) {
-	  var baseUrl, error, headers, http, id, success, tagHeader, tags, type, vid;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, vid = arg.vid, tags = arg.tags, success = arg.success, error = arg.error;
-	  headers = {};
-	  tagHeader = buildTags(tags);
-	  if (tagHeader) {
-	    headers["Category"] = tagHeader;
-	    return http({
-	      method: 'POST',
-	      url: baseUrl + "/" + type + "/" + id + "/_history/" + vid + "/_tags",
-	      headers: headers,
-	      success: success,
-	      error: error
-	    });
-	  } else {
-	    return console.log('Empty tags');
-	  }
-	};
-
-	affixTags = function(q) {
-	  if ((q.vid != null) && (q.id != null) && (q.type != null)) {
-	    return affixTagsToResourceVersion(q);
-	  } else if ((q.id != null) && (q.type != null)) {
-	    return affixTagsToResource(q);
-	  } else {
-	    throw 'wrong arguments';
-	  }
-	};
-
-	removeTagsFromResource = function(arg) {
-	  var baseUrl, error, http, id, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'POST',
-	    url: baseUrl + "/" + type + "/" + id + "/_tags/_delete",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	removeTagsFromResourceVersion = function(arg) {
-	  var baseUrl, error, http, id, success, type, vid;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, vid = arg.vid, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'POST',
-	    url: baseUrl + "/" + type + "/" + id + "/_history/" + vid + "/_tags",
-	    success: success,
-	    error: error
-	  });
-	};
-
-	removeTags = function(q) {
-	  if ((q.vid != null) && (q.id != null) && (q.type != null)) {
-	    return removeTagsFromResourceVersion(q);
-	  } else if ((q.id != null) && (q.type != null)) {
-	    return removeTagsFromResource(q);
-	  } else {
-	    throw 'wrong arguments';
-	  }
-	};
-
-	exports.tags = tags;
-
-	exports.affixTags = affixTags;
-
-	exports.removeTags = removeTags;
-
-
-/***/ },
-/* 11 */
-/***/ function(module, exports) {
-
-	var buildParams, history, historyAll, historyType;
-
-	buildParams = function(count, since) {
-	  var prm;
-	  prm = {};
-	  if (since != null) {
-	    prm._since = since;
-	  }
-	  if (count != null) {
-	    prm._count = count;
-	  }
-	  return prm;
-	};
-
-	history = function(arg) {
-	  var baseUrl, count, error, http, id, since, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, id = arg.id, success = arg.success, error = arg.error, count = arg.count, since = arg.since;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/" + type + "/" + id + "/_history",
-	    params: buildParams(count, since),
-	    success: success,
-	    error: error
-	  });
-	};
-
-	historyType = function(arg) {
-	  var baseUrl, count, error, http, since, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, type = arg.type, success = arg.success, error = arg.error, count = arg.count, since = arg.since;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/" + type + "/_history",
-	    params: buildParams(count, since),
-	    success: success,
-	    error: error
-	  });
-	};
-
-	historyAll = function(arg) {
-	  var baseUrl, count, error, http, since, success;
-	  baseUrl = arg.baseUrl, http = arg.http, success = arg.success, error = arg.error, count = arg.count, since = arg.since;
-	  return http({
-	    method: 'GET',
-	    url: baseUrl + "/_history",
-	    params: buildParams(count, since),
-	    success: success,
-	    error: error
-	  });
-	};
-
-	module.exports = function(q) {
-	  if ((q.id != null) && (q.type != null)) {
-	    return history(q);
-	  } else if (q.type != null) {
-	    return historyType(q);
-	  } else {
-	    return historyAll(q);
-	  }
-	};
-
-
-/***/ },
-/* 12 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var assert, gettype, toJson, utils;
-
-	utils = __webpack_require__(4);
-
-	gettype = utils.type;
-
-	toJson = function(resource) {
-	  if (gettype(resource) === 'string') {
-	    return resource;
-	  } else if (gettype(resource) === 'object') {
-	    return JSON.stringify(resource);
-	  }
-	};
-
-	assert = function(pred, mess) {
-	  if (pred == null) {
-	    throw mess;
-	  }
-	};
-
-	exports.create = function(arg) {
-	  var baseUrl, error, http, resource, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, resource = arg.resource, success = arg.success, error = arg.error;
-	  type = resource.resourceType;
-	  assert(type, 'resourceType should be present');
-	  return http({
-	    method: 'POST',
-	    url: baseUrl + "/" + type,
-	    data: toJson(resource),
-	    success: function(data, status, headers, config) {
-	      var uri;
-	      uri = headers('Content-Location');
-	      return success(uri, config);
-	    },
-	    error: error
-	  });
-	};
-
-	exports.validate = function(arg) {
-	  var baseUrl, error, http, resource, success, type;
-	  baseUrl = arg.baseUrl, http = arg.http, resource = arg.resource, success = arg.success, error = arg.error;
-	  type = resource.resourceType;
-	  assert(resource.resourceType, 'resourceType should be present');
-	  return http({
-	    method: 'POST',
-	    url: baseUrl + "/" + type + "/_validate",
-	    data: toJson(resource),
-	    success: function(data, status, headers, config) {
-	      return success(data, config);
-	    },
-	    error: error
-	  });
-	};
-
-	exports.read = function(arg) {
-	  var baseUrl, error, http, id, resourceType, success;
-	  baseUrl = arg.baseUrl, http = arg.http, resourceType = arg.resourceType, id = arg.id, success = arg.success, error = arg.error;
-	  return http({
-	    method: 'GET',
-	    url: utils.absoluteUrl(baseUrl, resourceType + "/" + id),
-	    success: function(data, status, headers, config) {
-	      return success(data, config);
-	    },
-	    error: error
-	  });
-	};
-
-	exports.update = function(arg) {
-	  var baseUrl, error, http, resource, success, url;
-	  baseUrl = arg.baseUrl, http = arg.http, resource = arg.resource, success = arg.success, error = arg.error;
-	  url = utils.absoluteUrl(baseUrl, resource.resourceType + "/" + resource.id);
-	  return http({
-	    method: 'PUT',
-	    url: url,
-	    data: toJson(resource),
-	    success: function(data, status, headers, config) {
-	      var uri;
-	      uri = headers('Content-Location');
-	      return success(uri, config);
-	    },
-	    error: error
-	  });
-	};
-
-	exports["delete"] = function(arg) {
-	  var baseUrl, error, http, resource, success, url;
-	  baseUrl = arg.baseUrl, http = arg.http, resource = arg.resource, success = arg.success, error = arg.error;
-	  url = utils.absoluteUrl(baseUrl, resource.resourceType + "/" + resource.id);
-	  return http({
-	    method: 'DELETE',
-	    url: url,
-	    success: function(data, status, headers, config) {
-	      return success(data, config);
-	    },
-	    error: error
-	  });
-	};
-
-	exports.vread = function(arg) {
-	  var baseUrl, http;
-	  baseUrl = arg.baseUrl, http = arg.http;
-	  return console.log('TODO');
-	};
-
-
-/***/ },
-/* 13 */
-/***/ function(module, exports) {
-
-	var wrap;
-
-	wrap = function(cfg, fn, middlewares) {
-	  var next;
-	  if (typeof middlewares === 'function') {
-	    middlewares = [middlewares];
-	  }
-	  next = function(wrapped, nextf) {
-	    return nextf(cfg, wrapped);
-	  };
-	  return [].concat(middlewares || []).reverse().reduce(next, fn);
-	};
-
-	module.exports = wrap;
-
-
-/***/ },
-/* 14 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var CONTAINED, async, resolveContained, sync, utils;
-
-	utils = __webpack_require__(4);
-
-	CONTAINED = /^#(.*)/;
-
-	resolveContained = function(ref, resource) {
-	  var cid, match, r, ret;
-	  cid = ref.match(CONTAINED)[1];
-	  match = (function() {
-	    var i, len, ref1, results;
-	    ref1 = resource != null ? resource.contained : void 0;
-	    results = [];
-	    for (i = 0, len = ref1.length; i < len; i++) {
-	      r = ref1[i];
-	      if ((r.id || r._id) === cid) {
-	        results.push(r);
-	      }
-	    }
-	    return results;
-	  })();
-	  ret = match[0] || null;
-	  if (ret) {
-	    return {
-	      content: ret
-	    };
-	  } else {
-	    return null;
-	  }
-	};
-
-	sync = function(arg) {
-	  var abs, baseUrl, bundle, bundled, cache4, e, http, ref, reference, resource;
-	  baseUrl = arg.baseUrl, http = arg.http, /*cache = arg.cache,*/ reference = arg.reference, resource = arg.resource, bundle = arg.bundle;
-	  ref = reference;
-	  if (!ref.reference) {
-	    return null;
-	  }
-	  if (ref.reference.match(CONTAINED)) {
-	    return resolveContained(ref.reference, resource);
-	  }
-	  abs = utils.absoluteUrl(baseUrl, ref.reference);
-	  bundled = (function() {
-	    var i, len, ref1, results;
-	    ref1 = (bundle != null ? bundle.entry : void 0) || [];
-	    results = [];
-	    for (i = 0, len = ref1.length; i < len; i++) {
-	      e = ref1[i];
-	      if (e.id === abs) {
-	        results.push(e);
-	      }
-	    }
-	    return results;
-	  })();
-	  return bundled[0] || (cache != null ? cache[abs] : void 0) || null;
-	};
-
-	async = function(opt) {
-	  var abs, baseUrl, bundle, cache, didSync, error, http, ref, reference, resource, success;
-	  baseUrl = opt.baseUrl, http = opt.http, /*cache = opt.cache,*/ reference = opt.reference, resource = opt.resource, bundle = opt.bundle, success = opt.success, error = opt.error;
-	  ref = reference;
-	  didSync = sync(opt);
-	  if (didSync) {
-	    return setTimeout(function() {
-	      if (success) {
-	        return success(didSync);
-	      }
-	    });
-	  }
-	  if (!ref.reference) {
-	    return setTimeout(function() {
-	      if (error) {
-	        return error("No reference found");
-	      }
-	    });
-	  }
-	  if (ref.reference.match(CONTAINED)) {
-	    return setTimeout(function() {
-	      if (error) {
-	        return error("Contained resource not found");
-	      }
-	    });
-	  }
-	  abs = utils.absoluteUrl(baseUrl, ref.reference);
-	  return http({
-	    method: 'GET',
-	    url: abs,
-	    success: function(data) {
-	      if (success) {
-	        return success(data);
-	      }
-	    },
-	    error: function(e) {
-	      if (error) {
-	        return error(e);
-	      }
-	    }
-	  });
-	};
-
-	module.exports.async = async;
-
-	module.exports.sync = sync;
-
-
-/***/ },
-/* 15 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var basic, bearer, btoa, identity, merge, withAuth, wrapWithAuth;
-
-	btoa = __webpack_require__(16).btoa;
-
-	merge = __webpack_require__(5);
-
-	bearer = function(cfg) {
-	  return function(req) {
-	    return withAuth(req, "Bearer " + cfg.auth.bearer);
-	  };
-	};
-
-	basic = function(cfg) {
-	  return function(req) {
-	    return withAuth(req, "Basic " + btoa(cfg.auth.user + ":" + cfg.auth.pass));
-	  };
-	};
-
-	identity = function(x) {
-	  return x;
-	};
-
-	withAuth = function(req, a) {
-	  var headers;
-	  headers = merge(true, req.headers || {}, {
-	    "Authorization": a
-	  });
-	  return merge(true, req, {
-	    headers: headers
-	  });
-	};
-
-	wrapWithAuth = function(cfg, http) {
-	  var requestProcessor;
-	  requestProcessor = (function() {
-	    var ref, ref1, ref2;
-	    switch (false) {
-	      case !(cfg != null ? (ref = cfg.auth) != null ? ref.bearer : void 0 : void 0):
-	        return bearer(cfg);
-	      case !((cfg != null ? (ref1 = cfg.auth) != null ? ref1.user : void 0 : void 0) && (cfg != null ? (ref2 = cfg.auth) != null ? ref2.pass : void 0 : void 0)):
-	        return basic(cfg);
-	      default:
-	        return identity;
-	    }
-	  })();
-	  return function(req) {
-	    return http(requestProcessor(req));
-	  };
-	};
-
-	module.exports = wrapWithAuth;
-
-
-/***/ },
-/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	;(function () {
 
-	  var object = true ? exports : this; // #8: web workers
+	  var object =  true ? exports : this; // #8: web workers
 	  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
 	  function InvalidCharacterError(message) {
@@ -1430,101 +823,264 @@ return /******/ (function(modules) { // webpackBootstrap
 
 
 /***/ },
-/* 17 */
+/* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var keyFor, merge, withPatient, wrap;
+	(function() {
+	    var utils = __webpack_require__(2);
 
-	merge = __webpack_require__(5);
+	    exports.Http = function(cfg, adapter){
+	        return function(args){
+	            if(args.debug){
+	                console.log("\nDEBUG (request):", args.method, args.url, args);
+	            }
+	            var promise = (args.http || adapter.http  || cfg.http)(args);
+	            if (args.debug && promise && promise.then){
+	                promise.then(function(x){ console.log("\nDEBUG: (responce)", x);});
+	            }
+	            return promise;
+	        };
+	    };
 
-	keyFor = {
-	  "Observation": "subject",
-	  "MedicationPrescription": "patient"
-	};
+	    var toJson = function(x){
+	        return (utils.type(x) == 'object') ? JSON.stringify(x) : x;
+	    };
 
-	withPatient = function(cfg, type, q) {
-	  var query;
-	  if (!cfg.boundToPatient || !cfg.patient || !keyFor[type]) {
-	    return q;
-	  }
-	  query = merge(true, q);
-	  query[keyFor[type]] = {
-	    $type: "Patient",
-	    _id: cfg.patient
-	  };
-	  return query;
-	};
+	    exports.$JsonData = function(h){
+	        return function(args){
+	            var data = args.bundle || args.data || args.resource;
+	            if(data){
+	                args.data = toJson(data);
+	            }
+	            return h(args);
+	        };
+	    };
 
-	wrap = function(cfg, search) {
-	  return function(params) {
-	    var baseUrl, error, http, query, success, type;
-	    baseUrl = params.baseUrl, http = params.http, type = params.type, query = params.query, success = params.success, error = params.error;
-	    return search(merge(true, params, {
-	      query: withPatient(cfg, type, query)
-	    }));
-	  };
-	};
-
-	module.exports = wrap;
+	}).call(this);
 
 
 /***/ },
-/* 18 */
-/***/ function(module, exports, __webpack_require__) {
+/* 10 */
+/***/ function(module, exports) {
 
-	var ltype, merge, resolve, utils, wrap;
-
-	resolve = __webpack_require__(14);
-
-	merge = __webpack_require__(5);
-
-	utils = __webpack_require__(4);
-
-	ltype = utils.type;
-
-	wrap = function(cfg, search) {
-	  var resourceBoundary;
-	  resourceBoundary = function(stack) {
-	    var res;
-	    res = function(acc, val) {
-	      return acc != null ? acc : ((val != null ? val.resourceType : void 0) && (val != null ? val.contained : void 0) ? val : null);
-	    };
-	    return stack.reduce(res, null);
-	  };
-	  return function(params) {
-	    var graph, graphCb, graphify, success, type;
-	    type = params.type, success = params.success, graph = params.graph;
-	    graphify = function(bundle, content) {
-	      var resolveRefs;
-	      resolveRefs = function(value, context) {
-	        var mapto, ref;
-	        if (value.reference) {
-	          mapto = resolve.sync(merge(true, params, {
-	            reference: value,
-	            bundle: bundle,
-	            resource: resourceBoundary(context)
-	          }));
-	          return (ref = mapto != null ? mapto.content : void 0) != null ? ref : value;
-	        } else {
-	          return value;
+	module.exports = function(h){
+	    return function(args){
+	        try{
+	            return h(args);
+	        }catch(e){
+	            if(args.debug){
+	               console.log("\nDEBUG: (ERROR in middleware)");
+	               console.log(e.message);
+	               console.log(e.stack);
+	            }
+	            if(!args.defer) {
+	                console.log("\nDEBUG: (ERROR in middleware)");
+	                console.log(e.message);
+	                console.log(e.stack);
+	                throw new Error("I need adapter.defer");
+	            }
+	            var deff = args.defer();
+	            deff.reject(e);
+	            return deff.promise;
 	        }
-	      };
-	      return utils.postwalk(resolveRefs, content, []);
 	    };
-	    graphCb = graph ? function(bundle, status, xhr) {
-	      var entries;
-	      entries = bundle.entry.map(function(e) {
-	        return e.content;
-	      });
-	      return success(graphify(bundle, entries));
-	    } : success;
-	    return search(merge(true, params, {
-	      success: graphCb
-	    }));
-	  };
 	};
 
-	module.exports = wrap;
+
+/***/ },
+/* 11 */
+/***/ function(module, exports) {
+
+	(function() {
+	    var copyAttr = function(from, to, attr){
+	        var v =  from[attr];
+	        if(v && !to[attr]) {to[attr] = v;}
+	        return from;
+	    };
+
+	    module.exports = function(cfg, adapter){
+	        return function(h){
+	            return function(args){
+	                copyAttr(cfg, args, 'baseUrl');
+	                copyAttr(cfg, args, 'cache');
+	                copyAttr(cfg, args, 'auth');
+	                copyAttr(cfg, args, 'patient');
+	                copyAttr(cfg, args, 'debug');
+	                copyAttr(adapter, args, 'defer');
+	                copyAttr(adapter, args, 'http');
+	                return h(args);
+	            };
+	        };
+	    };
+	}).call(this);
+
+
+/***/ },
+/* 12 */
+/***/ function(module, exports) {
+
+	exports.$$BundleLinkUrl =  function(rel){
+	    return function(h) {
+	        return function(args){
+	            var matched = function(x){return x.relation && x.relation === rel;};
+	            var res =  args.bundle && (args.bundle.link || []).filter(matched)[0];
+	            if(res && res.url){
+	                args.url = res.url;
+	                args.data = null;
+	                return h(args);
+	            }
+	            else{
+	                throw new Error("No " + rel + " link found in bundle");
+	            }
+	        };
+	    };
+	};
+
+
+/***/ },
+/* 13 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function() {
+	    var mw = __webpack_require__(5);
+
+	    var keyFor = {
+	        "Observation": "subject",
+	        "MedicationPrescription": "patient"
+	    };
+
+	    exports.$WithPatient = mw.$$Simple(function(args){
+	        var type  = args.type;
+	        var param = keyFor[type];
+	        if (args.patient && param){
+	            args.query = args.query || {};
+	            args.query[param] = {
+	                $type: "Patient",
+	                _id: args.patient
+	            };
+	        }
+	        return args;
+	    });
+	}).call(this);
+
+
+/***/ },
+/* 14 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function() {
+	    var utils = __webpack_require__(2);
+
+	    var CONTAINED = /^#(.*)/;
+	    var resolveContained = function(ref, resource) {
+	        var cid = ref.match(CONTAINED)[1];
+	        var ret = (resource.contained || []).filter(function(r){
+	            return (r.id || r._id) == cid;
+	        })[0];
+	        return (ret && {content: ret}) || null;
+	    };
+
+	    var sync = function(arg) {
+	        var cache = arg.cache;
+	        var reference = arg.reference;
+	        var bundle = arg.bundle;
+	        var ref = reference;
+	        if (!ref.reference) {return null;}
+	        if (ref.reference.match(CONTAINED)) {return resolveContained(ref.reference, arg.resource);}
+	        var abs = utils.absoluteUrl(arg.baseUrl, ref.reference);
+	        var bundled = ((bundle && bundle.entry) || []).filter( function(e){
+	            return e.id === abs;
+	        })[0];
+	        return bundled || (cache != null ? cache[abs] : void 0) || null;
+	    };
+
+	    var resolve = function(h){
+	        return function(args) {
+	            var cacheMatched = sync(args);
+	            var ref = args.reference;
+	            var def = args.defer();
+	            if (cacheMatched) {
+	                if(!args.defer){ throw new Error("I need promise constructor 'adapter.defer' in adapter"); }
+	                def.resolve(cacheMatched);
+	                return def.promise;
+	            }
+	            if (!ref) {
+	                throw new Error("No reference found");
+	            }
+	            if (ref && ref.reference.match(CONTAINED)) {
+	                throw new Error("Contained resource not found");
+	            }
+	            args.url = utils.absoluteUrl(args.baseUrl, ref.reference);
+	            args.data = null;
+	            return h(args);
+	        };
+	    };
+
+	    module.exports.sync = sync;
+	    module.exports.resolve = resolve;
+
+	}).call(this);
+
+
+/***/ },
+/* 15 */
+/***/ function(module, exports, __webpack_require__) {
+
+	(function() {
+	    var utils = __webpack_require__(2);
+	    var core = __webpack_require__(5);
+
+	    var id = function(x){return x;};
+	    var constantly = function(x){return function(){return x;};};
+
+	    var get_in = function(obj, path){
+	        return path.split('.').reduce(function(acc,x){
+	            if(acc == null || acc == undefined) { return null; }
+	            return acc[x];
+	        }, obj);
+	    };
+
+	    var evalPropsExpr = function(exp, args){
+	        var exps =  exp.split('||').map(function(x){return x.trim().substring(1);});
+	        for(var i = 0; i < exps.length; i++){
+	            var res = get_in(args, exps[i]);
+	            if(res){ return res; }
+	        }
+	        return null;
+	    };
+
+	    var evalExpr = function(exp, args){
+	        if (exp.indexOf(":") == 0){
+	            return evalPropsExpr(exp, args);
+	        } else {
+	            return exp;
+	        }
+	    };
+
+	    var buildPathPart = function(pth, args){
+	        var k = evalExpr(pth.trim(), args);
+	        if(k==null || k === undefined){ throw new Error("Parameter "+pth+" is required: " + JSON.stringify(args)); }
+	        return k;
+	    };
+
+	    // path chaining function
+	    // which return haldler wrapper: (h, cfg)->(args -> promise)
+	    // it's chainable Path("baseUrl").slash(":type").slash(":id").slash("_history")(id, {})({id: 5, type: 'Patient'})
+	    // and composable p0 = Path("baseUrl); p1 = p0.slash("path)
+	    var Path = function(tkn, chain){
+	        //Chainable
+	        var new_chain = function(args){
+	            return ((chain && (chain(args) + "/")) || "") +  buildPathPart(tkn, args);
+	        };
+	        var ch = core.Attribute('url', new_chain);
+	        ch.slash = function(tkn){
+	            return Path(tkn, new_chain);
+	        };
+	        return ch;
+	    };
+
+	    exports.Path = Path;
+	}).call(this);
 
 
 /***/ }

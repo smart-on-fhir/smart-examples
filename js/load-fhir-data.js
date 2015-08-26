@@ -5,11 +5,9 @@
     var dfd = $.Deferred();
 
     smart.context.patient.read().done(function(pt) {
-
-      var patient = pt.entry[0].resource;
-      var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
-      var birthday = new Date(patient.birthDate).toISOString();
-      var gender = patient.gender;
+      var name = pt.name[0].given.join(" ") +" "+ pt.name[0].family.join(" ");
+      var birthday = new Date(pt.birthDate).toISOString();
+      var gender = pt.gender;
 
       dfd.resolve({
         name: name,
@@ -32,7 +30,7 @@
     return dfd.promise();
   }
   
-  /*
+
   function cachedLink(items, target) {
     var match = null;
     items.forEach(function(r) {
@@ -43,7 +41,7 @@
     });
     return match;
   }
-  */
+
 
   function processObservations(observations, encounters){
 
@@ -61,9 +59,7 @@
     (vitalsByCode['55284-4']||[]).forEach(function(v){
 
       var components = smart.byCode(v.related.map(function(c){
-        //return cachedLink(observations, c.target);
-        var a = smart.fhir.resolveSync({reference:c.target, resource:v});
-        return smart.fhir.resolveSync({reference:c.target, resource:v});
+        return cachedLink(observations, c.target);
       }), 'code');
 
       var diastolicObs = components["8462-4"][0];
@@ -110,13 +106,13 @@
   
   function getNext (bundle) {
         var i;
-        var d = bundle.entry;
+        var d = bundle.data.entry;
         var entries = [];
         for (i = 0; i < d.length; i++) {
             entries.push(d[i].resource);
         }
         var def = $.Deferred();
-        smart.fhir.nextPage({bundle:bundle}).then(function (r) {
+        smart.fhir.nextPage({bundle:bundle.data}).then(function (r) {
             $.when(getNext(r)).then(function (t) {
                 def.resolve(entries.concat(t));
             });
