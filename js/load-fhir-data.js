@@ -16,7 +16,7 @@
       });
 
     }).fail(function(e) {
-      dfd.reject(e.message);
+      dfd.reject(e.message || e);
     });
 
     return dfd.promise();
@@ -123,11 +123,11 @@
   function getObservations(){
         var ret = new $.Deferred();
         
-        smart.fhir.search({type: "Observation", 
-           query: {subject: {$type: 'Patient', id: {$exact: smart.patientId}}}
-        }).then(function(data){
+        smart.fhir.search({type: "Observation"}).then(function(data){
             $.when(getNext(data)).then(function(r) {
                 ret.resolve(r);
+            }, function(err) {
+                ret.reject(err);
             });
         });
           
@@ -137,11 +137,11 @@
   function getEncounters(){
         var ret = new $.Deferred();
         
-        smart.fhir.search({type: "Encounter", 
-           query: {patient: {$type: 'Patient', id: {$exact: smart.patientId}}}
-        }).then(function(data){
+        smart.fhir.search({type: "Encounter"}).then(function(data){
             $.when(getNext(data)).then(function(r) {
                 ret.resolve(r);
+            }, function(err) {
+                ret.reject(err);
             });
         });
           

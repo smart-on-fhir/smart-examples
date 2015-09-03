@@ -160,7 +160,7 @@ return /******/ (function(modules) { // webpackBootstrap
 	            "delete": DELETE.and(resourcePath).and(ReturnHeader).end(http),
 	            create: POST.and(resourceTypePath).and(ReturnHeader).end(http),
 	            validate: POST.and(resourceTypePath.slash("_validate")).end(http),
-	            search: GET.and(searchPath).and(pt.$WithPatient).and(query.$SearchParams).and($Paging).end(http),
+	            search: GET.and(resourceTypePath).and(pt.$WithPatient).and(query.$SearchParams).and($Paging).end(http),
 	            update: PUT.and(resourcePath).and(ReturnHeader).end(http),
 	            nextPage: GET.and(bundle.$$BundleLinkUrl("next")).end(http),
 	            prevPage: GET.and(bundle.$$BundleLinkUrl("prev")).end(http),
@@ -946,18 +946,25 @@ return /******/ (function(modules) { // webpackBootstrap
 
 	    var keyFor = {
 	        "Observation": "subject",
-	        "MedicationPrescription": "patient"
+	        "MedicationPrescription": "patient",
+	        "Encounter": "patient"
 	    };
 
 	    exports.$WithPatient = mw.$$Simple(function(args){
 	        var type  = args.type;
 	        var param = keyFor[type];
-	        if (args.patient && param){
-	            args.query = args.query || {};
-	            args.query[param] = {
-	                $type: "Patient",
-	                _id: args.patient
-	            };
+	        if (args.patient) {
+	            if (param){
+	                args.query = args.query || {};
+	                args.query[param] = {
+	                    $type: "Patient",
+	                    _id: args.patient
+	                };
+	            } else if (type === "Patient") {
+	                args.query = args.query || {};
+	                args.query["_id"] = args.patient;
+	                args["id"] = args.patient;
+	            }
 	        }
 	        return args;
 	    });
