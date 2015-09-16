@@ -6726,23 +6726,36 @@ function FhirClient(p) {
     var auth = {};
     
     if (server.auth.type === 'basic') {
-    	auth = {
-    		user: server.auth.username,
-    		pass: server.auth.password
-    	};
+        auth = {
+            user: server.auth.username,
+            pass: server.auth.password
+        };
     } else if (server.auth.type === 'bearer') {
         auth = {
-    		bearer: server.auth.token
-    	};
-    } 
+            bearer: server.auth.token
+        };
+    }
     
-    client.fhir = fhir({
+    client.api = fhir({
         baseUrl: server.serviceUrl,
-        auth: auth,
-        patient: p.patientId
+        auth: auth
     });
+    
+    if (p.patientId) {
+        client.patient = {};
+        client.patient.id = p.patientId;
+        client.patient.api = fhir({
+            baseUrl: server.serviceUrl,
+            auth: auth,
+            patient: p.patientId
+        });
+        client.patient.read = function(){
+            return client.get({resource: 'Patient'});
+        };
+    }
+    
+    var fhirAPI = (client.patient)?client.patient.api:client.api;
 
-    client.patientId = p.patientId;
     client.userId = p.userId;
 
     server.auth = server.auth ||  {
@@ -6762,7 +6775,7 @@ function FhirClient(p) {
             params["id"] = p.id;
         }
           
-        client.fhir.read(params)
+        fhirAPI.read(params)
             .then(function(res){
                 ret.resolve(res.data);
             }, function(){
@@ -6771,21 +6784,61 @@ function FhirClient(p) {
           
         return ret.promise;
     };
+    
+    function getNext (bundle, process) {
+        var i;
+        var d = bundle.data.entry;
+        var entries = [];
+        for (i = 0; i < d.length; i++) {
+            entries.push(d[i].resource);
+        }
+        process(entries);
+        var def = Adapter.get().defer();
+        fhirAPI.nextPage({bundle:bundle.data}).then(function (r) {
+            $.when(getNext(r, process)).then(function (t) {
+                def.resolve();
+            });
+        }, function(err) {def.resolve()});
+        return def.promise;
+    }
+    
+    client.drain = function(searchParams, process, done, fail) {
+        var ret = Adapter.get().defer();
+        
+        fhirAPI.search(searchParams).then(function(data){
+            $.when(getNext(data, process)).then(function() {
+                done();
+            }, function(err) {
+                fail(err);
+            });
+        });
+    };
+    
+    client.fetchAll = function (searchParams){
+        var ret = Adapter.get().defer();
+        var results = [];
+        
+        client.drain(
+            searchParams,
+            function(entries) {
+                entries.forEach(function(entry) {
+                    results.push(entry);
+                });
+            },
+            function () {
+                ret.resolve(results);
+            }
+        );
+          
+        return ret.promise;
+    };
 
-    client.context = {};
-
-    client.context.user = {
+    client.user = {
       'read': function(){
         var userId = client.userId;
         resource = userId.split("/")[0];
         uid = userId.split("/")[1];
         return client.get({resource: resource, id: uid});
-      }
-    };
-
-    client.context.patient = {
-      'read': function(){
-          return client.get({resource: 'Patient'});
       }
     };
 
