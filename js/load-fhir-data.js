@@ -115,7 +115,8 @@
   };
 
   function getObservations(){
-        return smart.fetchAll({type: "Observation"});
+        return smart.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','55284-4']}}});
+        
   };
   
   function getEncounters(){
