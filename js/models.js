@@ -12,10 +12,10 @@ DMPatientServices.factory('$dmPatient', function () {
             var patient = this.patient;
             return $.Deferred(function (dfd) {
             
-                smart.context.patient.read().done(function (p) {
+                smart.patient.read().done(function (p) {
                     patient.familyName = p.name[0].family.join(" ");
                     patient.givenName = p.name[0].given.join(" ");
-                    patient.gender = (p.gender.coding[0].code == 'M') ? 'male' : 'female';
+                    patient.gender = p.gender;
                     patient.bday = p.birthDate;
                     dfd.resolve();
                 }).fail(function(e) {
@@ -28,24 +28,18 @@ DMPatientServices.factory('$dmPatient', function () {
             var patient = this.patient;
             return $.Deferred(function (dfd) {
                 patient.medicines = [];
-
-                var allMeds = [];
                 
-                smart.context.patient.MedicationPrescription.where.drain(drainMeds).done(doneMeds);
+                smart.patient.api.fetchAll({type: "MedicationOrder"}).then(doneMeds);
 
-                function drainMeds(ms){
-                  [].push.apply(allMeds, ms); 
-                };
-
-                function doneMeds(){
+                function doneMeds(allMeds){
                     $.each(allMeds, function (idx, med) {
-                        var m = med.contained[0];
-                        var c = m.code.coding[0];
+                        var c = med.medicationCodeableConcept.coding[0];
+                        var name = c.display;
                         var inst = med.dosageInstruction[0];
-                        var startDate = inst.timingSchedule.event[0].start;
+                        var startDate = inst.timing.repeat.boundsPeriod.start;
                         // TO DO: need to verify that c.system is RXNORM
                         
-                        patient.medicines.push({ "rxCui": c.code, "rxName": m.name, "ins": inst.text, "startDate": startDate });
+                        patient.medicines.push({ "rxCui": c.code, "rxName": name, "ins": inst.text, "startDate": startDate });
                     });
                 
                     patient.medicines = _(patient.medicines).chain().sortBy(function (p) {
@@ -68,15 +62,9 @@ DMPatientServices.factory('$dmPatient', function () {
             return $.Deferred(function (dfd) {
                 patient.problems = [];
 
-                var allProblems = [];
+                smart.patient.api.fetchAll({type: "Condition"}).then(doneProblems);
 
-                smart.context.patient.Condition.where.drain(drainProblems).done(doneProblems);
-
-                function drainProblems(ps){
-                  [].push.apply(allProblems, ps); 
-                };
-
-                function doneProblems(){
+                function doneProblems(allProblems){
                     $.each(allProblems, function (idx, p) {
                         var c = p.code.coding[0];
                         // TO DO: need to verify that c.system is SNOMEDCT
@@ -92,7 +80,7 @@ DMPatientServices.factory('$dmPatient', function () {
                             problem.category = "CoMorbidity";
                         else
                             problem.category = "Normal";
-                        problem.startDate = "...";
+                        problem.startDate = p.onsetDateTime;
                         patient.problems.push(problem);
                     });
                 
@@ -109,40 +97,18 @@ DMPatientServices.factory('$dmPatient', function () {
             var patient = this.patient;
             return $.Deferred(function (dfd) {
                 patient.allergies = [];
-                
-                var allAllergies = [];
 
-                smart.context.patient.AllergyIntolerance
-                .where
-                .drain(drainAllergies)
-                .done(doneAllergies);
+                smart.patient.api.fetchAll({type: "AllergyIntolerance"}).then(doneAllergies);
 
-                function drainAllergies(as){
-                  [].push.apply(allAllergies, as); 
-                };
-                
-                function doneAllergies(){
+                function doneAllergies(allAllergies){
                     // TO DO: need to verify that coding systems etc
                 
-                    var startingpoint=$.Deferred();
-                    startingpoint.resolve();
-                
                     $.each(allAllergies, function (idx, a) {
-                        startingpoint=startingpoint.pipe(function() {
-                            return $.when(smart.followLink(a, a.reaction[0]), smart.followLink(a, a.substance))
-                              .then(function (r, s) {
-                                    //var allergen = a.drugClassAllergen || a.foodAllergen;
-                                    //if (allergen) {
-                                        var allergy = { "allergen": s.type.coding[0].display, "reaction": r.symptom[0].code.coding[0].display };
-                                        patient.allergies.push(allergy);
-                                    //}
-                              });
-                        });
+                        var allergy = { "allergen": a.substance.coding[0].display, "reaction": a.type };
+                        patient.allergies.push(allergy);
                     });
-
-                    startingpoint=startingpoint.pipe(function() {
-                        dfd.resolve();
-                    });
+                    
+                    dfd.resolve();
                 };
             }).promise();
         },
@@ -152,28 +118,22 @@ DMPatientServices.factory('$dmPatient', function () {
             return $.Deferred(function (dfd) {
                 patient.labs = [];
                 
-                var allLabs = [];
-                
                 // TO DO: This should use a semantic service
-                smart.context.patient.Observation.where.nameIn(["2085-9","17861-6","1968-7","13457-7","3094-0","2571-8","2093-3","2345-7","1975-2","2160-0","1742-6","2823-3","2075-0","2028-9","1920-8","2951-2","6768-6","2885-2","1751-7","1971-1","9842-6","5811-5","5803-2","5804-0","5794-3","5770-3","20453-7","26515-7","30428-7","770-8","5802-4","30385-9","2157-6","5821-4","13945-1","26464-8","789-8","26478-8","26485-3","26450-7","30180-4","718-7","8247-9","5769-5","785-6","786-4","30522-7","10466-1","28542-9","5796-8","12258-0","11580-8","5767-9","1648-5","6298-4","2339-0","6299-2","38483-4","20509-6","20570-8","2069-3","26511-6","735-1","26508-2","5799-2","2857-1","4548-4","3040-3","10839-9","3084-1","18262-6","9318-7","3024-7","3051-0","33903-6","18282-4","19161-9","19659-2","3879-4","3397-7","3377-9","3349-8","681-7","20473-5","19123-9","1558-6","31100-1","2947-0","30089-7","13969-1","20569-0","741-9","738-5","26486-1","2342-4","2880-3","10378-8","802-9","26498-6","9317-9","3298-7","11555-0","6742-1","20512-0","1841-6","10335-8","7791-7","2614-6","806-0","26454-9","10328-3","4024-6","11558-4","11557-6","11556-8","1959-6","20563-3","2713-6","2143-6","2158-4","1863-0","2777-1","4092-3","30934-4","3184-9","2284-8","20565-8","19048-8","774-0","800-3","38478-4","29571-7","2106-3","49220-7","32215-6","2692-2","2524-7","14627-4","19080-1","2746-6","2986-8","13955-0","5792-7","21416-3","34708-8","4544-3","1989-3","14957-5","54434-6","43727-7","43729-3","62255-5","19869-7","20149-1","19925-7","69971-0","19877-0","20157-4","19926-5","69972-8","19874-7","20155-8","69970-2","69973-6","21414-8","21189-6","62461-9","14370-1","69571-8","41935-8","71850-2","2091-7","68954-7","2075--0","2498-4","2500-7","2501-5","2502-3","2276-4","16128-1","2132-9","7917-8","20507-0","44009-9","10900-9","30341-2","5047-6","11572-5","14914-6","37362-1"]).drain(drainlabs).done(doneLabs);
+                smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ["2085-9","17861-6","1968-7","13457-7","3094-0","2571-8","2093-3","2345-7","1975-2","2160-0","1742-6","2823-3","2075-0","2028-9","1920-8","2951-2","6768-6","2885-2","1751-7","1971-1","9842-6","5811-5","5803-2","5804-0","5794-3","5770-3","20453-7","26515-7","30428-7","770-8","5802-4","30385-9","2157-6","5821-4","13945-1","26464-8","789-8","26478-8","26485-3","26450-7","30180-4","718-7","8247-9","5769-5","785-6","786-4","30522-7","10466-1","28542-9","5796-8","12258-0","11580-8","5767-9","1648-5","6298-4","2339-0","6299-2","38483-4","20509-6","20570-8","2069-3","26511-6","735-1","26508-2","5799-2","2857-1","4548-4","3040-3","10839-9","3084-1","18262-6","9318-7","3024-7","3051-0","33903-6","18282-4","19161-9","19659-2","3879-4","3397-7","3377-9","3349-8","681-7","20473-5","19123-9","1558-6","31100-1","2947-0","30089-7","13969-1","20569-0","741-9","738-5","26486-1","2342-4","2880-3","10378-8","802-9","26498-6","9317-9","3298-7","11555-0","6742-1","20512-0","1841-6","10335-8","7791-7","2614-6","806-0","26454-9","10328-3","4024-6","11558-4","11557-6","11556-8","1959-6","20563-3","2713-6","2143-6","2158-4","1863-0","2777-1","4092-3","30934-4","3184-9","2284-8","20565-8","19048-8","774-0","800-3","38478-4","29571-7","2106-3","49220-7","32215-6","2692-2","2524-7","14627-4","19080-1","2746-6","2986-8","13955-0","5792-7","21416-3","34708-8","4544-3","1989-3","14957-5","54434-6","43727-7","43729-3","62255-5","19869-7","20149-1","19925-7","69971-0","19877-0","20157-4","19926-5","69972-8","19874-7","20155-8","69970-2","69973-6","21414-8","21189-6","62461-9","14370-1","69571-8","41935-8","71850-2","2091-7","68954-7","2075--0","2498-4","2500-7","2501-5","2502-3","2276-4","16128-1","2132-9","7917-8","20507-0","44009-9","10900-9","30341-2","5047-6","11572-5","14914-6","37362-1"]}}}).then(doneLabs);
 
-                function drainlabs(ls){
-                  [].push.apply(allLabs, ls); 
-                };
-
-                function doneLabs(){
+                function doneLabs(allLabs){
                     // TO DO: verify that coding system is LOINC
                     _(allLabs).chain().sortBy(function (l) {
-                        return l.name.coding[0].display;
+                        return l.code.coding[0].display;
                     }).each(function (l) {
                         if (l.valueQuantity && l.referenceRange) {
                             var data = [];
-                            var d = new XDate(l.appliesDateTime).addYears(4, true);
+                            var d = new XDate(l.effectiveDateTime).addYears(4, true);
                             var flag = Number(l.valueQuantity.value) <= Number(l.referenceRange[0].low.value) || Number(l.valueQuantity.value) >= Number(l.referenceRange[0].high.value);
                             data.push({ "shortdate": d.toString('MM/dd/yy'), "date": d.toString('MM/dd/yyyy'), "value": l.valueQuantity.value, "flag": flag });
 
                             var lab = _.find(patient.labs, function (lab) {
-                                return lab.loinc == l.name.coding[0].code;
+                                return lab.loinc == l.code.coding[0].code;
                             });
                             if (lab) {
                                 flag = Number(l.valueQuantity.value) <= Number(lab.min) || Number(l.valueQuantity.value) >= Number(lab.max);
@@ -181,8 +141,8 @@ DMPatientServices.factory('$dmPatient', function () {
                             }
                             else {
                                 lab = {
-                                    "loinc": l.name.coding[0].code,
-                                    "name": l.name.coding[0].display,
+                                    "loinc": l.code.coding[0].code,
+                                    "name": l.code.coding[0].display,
                                     "units": l.valueQuantity.units,
                                     "range": l.referenceRange[0].low.value + "-" + l.referenceRange[0].high.value,
                                     "min": l.referenceRange[0].low.value,
@@ -203,23 +163,17 @@ DMPatientServices.factory('$dmPatient', function () {
             var patient = this.patient;
             return $.Deferred(function(dfd) {
                 patient.vitals = [];
-                
-                var allVitals = [];
-                
-                smart.context.patient.Observation.where.nameIn(['8302-2','3141-9','8480-6','8462-4']).drain(drainVitals).done(doneVitals);
 
-                function drainVitals(vs){
-                  [].push.apply(allVitals, vs); 
-                };
+                smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','3141-9','8480-6','8462-4']}}}).then(doneVitals);
 
-                function doneVitals(){
+                function doneVitals(allVitals){
                     (function bpsys() {
                         var data = _(allVitals).chain()
                         .filter(function (v) {
-                            return v.name.coding[0].code == "8480-6";
+                            return v.code.coding[0].code == "8480-6";
                         })
                         .map(function (v) {
-                            var d = new XDate(v.appliesDateTime).addYears(3, true);
+                            var d = new XDate(v.effectiveDateTime).addYears(3, true);
                             return {
                                 "date": d.toString('MM/dd/yyyy'),
                                 "value":Number(v.valueQuantity.value)
@@ -233,10 +187,10 @@ DMPatientServices.factory('$dmPatient', function () {
                     (function bpdia() {
                         var data = _(allVitals).chain()
                         .filter(function (v) {
-                            return v.name.coding[0].code == "8462-4";
+                            return v.code.coding[0].code == "8462-4";
                         })
                         .map(function (v) {
-                            var d = new XDate(v.appliesDateTime).addYears(3, true);
+                            var d = new XDate(v.effectiveDateTime).addYears(3, true);
                             return {
                                 "date": d.toString('MM/dd/yyyy'),
                                 "value": Number(v.valueQuantity.value)
@@ -252,14 +206,14 @@ DMPatientServices.factory('$dmPatient', function () {
                         var data = _(allVitals).chain()
                            
                         .filter(function (v) {
-                            return v.name.coding[0].code == "3141-9";
+                            return v.code.coding[0].code == "3141-9";
                         })
                         .sortBy(function (v) {
-                            return v.appliesDateTime || null
+                            return v.effectiveDateTime || null
                         })
                             
                         .map(function(v) {
-                            var d = new XDate(v.appliesDateTime).addYears(3, true);
+                            var d = new XDate(v.effectiveDateTime).addYears(3, true);
                             units = v.valueQuantity.units;
                             return {
                                 "date": d.toString('MM/dd/yyyy'),
@@ -275,14 +229,14 @@ DMPatientServices.factory('$dmPatient', function () {
                         var data = _(allVitals).chain()
                             
                         .filter(function (v) {
-                            return v.name.coding[0].code == "8302-2";
+                            return v.code.coding[0].code == "8302-2";
                         })
                         .sortBy(function (v) {
-                            return v.appliesDateTime || null
+                            return v.effectiveDateTime || null
                         })
                             
                         .map(function (v) {
-                            var d = new XDate(v.appliesDateTime).addYears(3, true);
+                            var d = new XDate(v.effectiveDateTime).addYears(3, true);
                             units = v.valueQuantity.units;
                             return {
                                 "date": d.toString('MM/dd/yyyy'),
