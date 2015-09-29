@@ -115,12 +115,12 @@
   };
 
   function getObservations(){
-        return smart.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','55284-4']}}});
+        return smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','55284-4']}}});
         
   };
   
   function getEncounters(){
-        return smart.fetchAll({type: "Encounter"});
+        return smart.patient.api.fetchAll({type: "Encounter"});
   };
 
 })();
