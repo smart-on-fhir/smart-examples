@@ -153,7 +153,7 @@ var _round = function(val, dec){ return Math.round(val*Math.pow(10,dec))/Math.po
 
 var get_medications = function(){
   return $.Deferred(function(dfd){
-    smart.fetchAll({type: "MedicationOrder"}).then(function(rxs){
+    smart.patient.api.fetchAll({type: "MedicationOrder"}).then(function(rxs){
       _(rxs).each(function(rx){
         var instructions = rx.dosageInstruction[0].text;
         if (!instructions && rx.dosageInstruction[0].doseQuantity) {
@@ -194,7 +194,7 @@ var get_vital_sign_sets = function(){
   return $.Deferred(function(dfd){
    
     results = [];
-    var vitals = smart.fetchAll({type: "Observation", query: {code: {$or: ['8480-6','8462-4','8302-2','3141-9','55284-4']}}});
+    var vitals = smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ['8480-6','8462-4','8302-2','3141-9','55284-4']}}});
 
     vitals.then(function(results){
       var vitalsByCode = smart.byCode(results, 'code');
@@ -293,7 +293,7 @@ function anyOf(byCode, codes){
 
 var get_lab_results = function(){
   return $.Deferred(function(dfd){
-   smart.fetchAll({type: "Observation"}).then(function(results){
+   smart.patient.api.fetchAll({type: "Observation"}).then(function(results){
       var resultsByCode = smart.byCode(results, 'code');
 
       (function ldl(){
@@ -539,7 +539,7 @@ var get_lab_results = function(){
 
 var get_problems = function(){
   return $.Deferred(function(dfd){
-    smart.fetchAll({type: "Condition"}).then(function(problems){
+    smart.patient.api.fetchAll({type: "Condition"}).then(function(problems){
       problems.forEach(function(p){
         pt.problems_arr.push([
           new XDate(p.onsetDateTime),
