@@ -37,7 +37,7 @@ if (!BPC) {
                         BPC.demographics = demographics;
                     },
                     function (message) {
-                        BPC.displayError (message.data);
+                        BPC.displayError (message.data || message);
                     });
             }
             

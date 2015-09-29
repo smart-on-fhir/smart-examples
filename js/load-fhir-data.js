@@ -4,76 +4,100 @@
   FhirLoader.demographics = function() {
     var dfd = $.Deferred();
 
-    smart.api.Patient.read().done(function(patient) {
-
-      var name = patient.name[0].given.join(" ") +" "+ patient.name[0].family.join(" ");
-      var birthday = new Date(patient.birthDate).toISOString();
-      var gender = patient.gender.coding[0];
+    smart.patient.read().done(function(pt) {
+      var name = pt.name[0].given.join(" ") +" "+ pt.name[0].family.join(" ");
+      var birthday = new Date(pt.birthDate).toISOString();
+      var gender = pt.gender;
 
       dfd.resolve({
         name: name,
-        gender: gender.code == 'M' ? 'male' : 'female',
+        gender: gender,
         birthday: birthday
       });
 
     }).fail(function(e) {
-      dfd.reject(e.message);
+      dfd.reject(e.message || e);
     });
 
     return dfd.promise();
   };
 
-  var db = {}
-
   FhirLoader.vitals = function() {
-    return getObservations().pipe(getEncounters).pipe(processObservations);
+    var dfd = $.Deferred();
+    $.when(getObservations(),getEncounters()).then(function(observations,encounters) {
+        dfd.resolve(processObservations(observations,encounters));
+    });
+    return dfd.promise();
+  }
+  
+
+  function cachedLink(items, target) {
+    var match = null;
+    items.forEach(function(r) {
+        var rid = r.resourceType + '/' + r.id;
+        if (rid === target.reference) {
+            match = r;
+        }
+    });
+    return match;
   }
 
-  function processObservations(){
+
+  function processObservations(observations, encounters){
 
     var vitals = {heightData: [], bpData: []};
 
-    var vitalsByCode = smart.byCode(db.observations, 'name');
+    var vitalsByCode = smart.byCode(observations, 'code');
 
     (vitalsByCode['8302-2']||[]).forEach(function(v){
       vitals.heightData.push({
-        vital_date: v.appliesDateTime,
+        vital_date: v.effectiveDateTime,
         height: smart.units.cm(v.valueQuantity)
       }); 
     });
 
     (vitalsByCode['55284-4']||[]).forEach(function(v){
 
-      var components = smart.byCode(v.related.map(function(c){
-        return smart.cachedLink(v, c.target);
-      }), 'name');
+      var components = v.component;
 
-      var diastolicObs = components["8462-4"][0];
-      var systolicObs = components["8480-6"][0];
+      var diastolicObs = components.find(function(component){
+      	return component.code.coding.find(function(coding) {
+      		return coding.code === "8462-4";
+      	});
+      });
+      var systolicObs = components.find(function(component){
+      	return component.code.coding.find(function(coding) {
+      		return coding.code === "8480-6";
+      	});
+      });
       var systolic = systolicObs.valueQuantity.value;
       var diastolic = diastolicObs.valueQuantity.value;
       var extensions = v.extension;
       var obj = {
-        vital_date: v.appliesDateTime,
+        vital_date: v.effectiveDateTime,
         systolic: systolic,
         diastolic: diastolic
       };
       
       if (extensions) {
-          $.each(extensions, function(index, extension){
-              if (extension.url === "http://fhir-registry.smarthealthit.org/Profile/vital-signs#position") {
-                 var coding = extension.valueCodeableConcept.coding[0];
-                 obj["bodyPositionCode"] = coding.system + coding.code;
-              } else if (extension.url === "http://fhir-registry.smarthealthit.org/Profile/vital-signs#encounter"){
-                var encounter = smart.cachedLink(v, extension.valueResource);
-                var encounter_type = encounter.class;
-                if (encounter_type === "outpatient") {
-                    encounter_type = "ambulatory";
-                }
-                obj["encounterTypeCode"] = "http://smarthealthit.org/terms/codes/EncounterType#" + encounter_type;
-              }
-          });
+         var position = extensions.find(function(extension) {
+            return extension.url === "http://fhir-registry.smarthealthit.org/StructureDefinition/vital-signs#position";
+         });
+         if (position) {
+      	     var coding = position.valueCodeableConcept.coding[0];
+             obj["bodyPositionCode"] = coding.system + coding.code;
+         }
       }
+      
+      if (v.encounter){
+           var encounter = cachedLink(encounters, v.encounter);
+           var encounter_type = encounter.class;
+           if (encounter_type === "outpatient") {
+               encounter_type = "ambulatory";
+           }
+           obj["encounterTypeCode"] = "http://smarthealthit.org/terms/codes/EncounterType#" + encounter_type;
+      }
+              
       if (v.bodySite) {
         obj["bodySiteCode"] = v.bodySite.coding[0].system + v.bodySite.coding[0].code;
       }
@@ -82,7 +106,7 @@
         obj["methodCode"] = v.method.coding[0].system + v.method.coding[0].code;
       }
       
-      obj["encounterTypeCode"] = "http://smarthealthit.org/terms/codes/EncounterType#ambulatory";
+      //obj["encounterTypeCode"] = "http://smarthealthit.org/terms/codes/EncounterType#ambulatory";
       
       vitals.bpData.push(obj);
     });
@@ -91,19 +115,12 @@
   };
 
   function getObservations(){
-    var loincs = ['8480-6','8462-4','8302-2','55284-4'];
-    return smart.context.patient.Observation.where.nameIn(loincs)
-    .drain(function(vs){
-      db.observations = (db.observations || []); 
-      [].push.apply(db.observations, vs)
-    }, db);
+        return smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','55284-4']}}});
+        
   };
   
   function getEncounters(){
-    return smart.context.patient.Encounter.where.drain(function(vs){
-      db.encounters = (db.encounters || []); 
-      [].push.apply(db.encounters, vs)
-    }, db);
-  };  
+        return smart.patient.api.fetchAll({type: "Encounter"});
+  };
 
 })();
