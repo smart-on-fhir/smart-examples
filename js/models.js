@@ -36,7 +36,7 @@ DMPatientServices.factory('$dmPatient', function () {
                         var c = med.medicationCodeableConcept.coding[0];
                         var name = c.display;
                         var inst = med.dosageInstruction[0];
-                        var startDate = inst.timing.repeat.boundsPeriod.start;
+                        var startDate = inst.timing ? inst.timing.repeat.boundsPeriod.start : "unknown";
                         // TO DO: need to verify that c.system is RXNORM
                         
                         patient.medicines.push({ "rxCui": c.code, "rxName": name, "ins": inst.text, "startDate": startDate });
