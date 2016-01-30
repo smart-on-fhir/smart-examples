@@ -155,20 +155,23 @@ var get_medications = function(){
   return $.Deferred(function(dfd){
     smart.patient.api.fetchAll({type: "MedicationOrder"}).then(function(rxs){
       _(rxs).each(function(rx){
-        var instructions = rx.dosageInstruction[0].text;
-        if (!instructions && rx.dosageInstruction[0].doseQuantity) {
-          instructions = rx.dosageInstruction[0].doseQuantity.value+ 
-                        " " + rx.dosageInstruction[0].doseQuantity.unit+
-                        " " 
-                         rx.dosageInstruction[0].scheduledTiming.repeat.frequency + 
-                         " per " +
-                         rx.dosageInstruction[0].scheduledTiming.repeat.duration + " " +
-                         rx.dosageInstruction[0].scheduledTiming.repeat.unit;
+        var instructions = "";
+        if (rx.dosageInstruction) {
+          instructions = rx.dosageInstruction[0].text;
+          if (!instructions && rx.dosageInstruction[0].doseQuantity) {
+            instructions = rx.dosageInstruction[0].doseQuantity.value+ 
+                          " " + rx.dosageInstruction[0].doseQuantity.unit+
+                          " " 
+                           rx.dosageInstruction[0].scheduledTiming.repeat.frequency + 
+                           " per " +
+                           rx.dosageInstruction[0].scheduledTiming.repeat.duration + " " +
+                           rx.dosageInstruction[0].scheduledTiming.repeat.unit;
+          }
         }
         pt.meds_arr.push([
-          new XDate(rx.dosageInstruction[0].timing.repeat.boundsPeriod.start).valueOf(),
+          new XDate(rx.dosageInstruction && rx.dosageInstruction[0].timing.repeat.boundsPeriod.start || "1800-01-01").valueOf(),
           rx.medicationCodeableConcept.coding[0].display,
-          rx.dosageInstruction && rx.dosageInstruction.text || ""
+          instructions
         ])
       })
 
