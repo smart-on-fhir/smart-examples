@@ -118,9 +118,22 @@
         return smart.patient.api.fetchAll({type: "Observation", query: {code: {$or: ['8302-2','55284-4']}}});
         
   };
+
+  function defaultOnFail(promise, defaultValue) {
+      var deferred = $.Deferred();
+      $.when(promise).then(
+          function (data) {
+            deferred.resolve(data);
+          },
+          function () {
+            deferred.resolve(defaultValue);
+          }
+      );
+      return deferred.promise();
+  };
   
   function getEncounters(){
-        return smart.patient.api.fetchAll({type: "Encounter"});
+        return defaultOnFail(smart.patient.api.fetchAll({type: "Encounter"}),[]);
   };
 
 })();
