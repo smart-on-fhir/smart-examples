@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- 
+<!--
 /**
 *  Blood Pressure Centiles SMART Application
 *
@@ -15,22 +15,22 @@
 <html lang="en">
 
     <head>
-    
+
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <meta http-equiv="X-UA-Compatible" content="IE=edge" />
         <title>Blood Pressure Centiles SMART Application</title>
 
         <script src="js/polyfills.js"></script>
-        
+
         <script src="node_modules/fhirclient/fhir-client.js"></script>
         <script src="js/load-fhir-data.js"></script>
-        
+
         <!-- jQuert UI custom theme-->
         <link rel="stylesheet" href="css/themes/custom/jquery-ui.css" type="text/css" media="screen" />
-        
+
         <!-- BPC stylesheets-->
         <link rel="stylesheet" href="css/bpc-screen.css" type="text/css" media="screen" />
-        
+
         <!-- Standard JS Libraries -->
         <script src="js/lib/jquery.js" type="text/javascript"></script>
         <script src="js/lib/jquery-jtemplates.js" type="text/javascript"></script>
@@ -45,7 +45,7 @@
         <script src="js/util.js" type="text/javascript"></script>
         <script src="js/bpc-localizations.js" type="text/javascript"></script>
         <script src="js/popup.js" type="text/javascript"></script>
-        
+
         <!-- BPC App Modules -->
         <script src="js/bpc-config.js" type="text/javascript"></script>
         <script src="js/bpc-data.js" type="text/javascript"></script>
@@ -53,10 +53,10 @@
         <script src="js/bpc-graph.js" type="text/javascript"></script>
         <script src="js/bpc-ui.js" type="text/javascript"></script>
     </head>
-    
+
     <body>
         <div id="main">
-        
+
             <!-- Page header -->
             <div id="headings">
                 <table width="786">
@@ -70,10 +70,10 @@
                 </table>
             </div>
             <div id="info" ><img style="border-color:#A00;border-width:3px;" src="images/ajax-loader.gif" alt="Loading"/></div>
-            
+
             <!-- Tabs -->
             <div id="tabs">
-            
+
                 <ul>
                     <li><a href="#tab_short" data-translatecontent="STR_SHORT_TERM_VIEW_1" data-translateattr="title=STR_LAST_THREE_BP_DAYS_2"></a></li>
                     <li><a href="#tab_long" data-translatecontent="STR_LONG_TERM_VIEW_3"></a></li>
@@ -83,7 +83,7 @@
                     <li><button onclick="BPC.openPrintWindow();" class="ui-state-default print-button"><img src="images/print2.png" /><span data-translatecontent="STR_PRINT_7"></span></button></li>
                     <li class="language-selector"></li>
                 </ul>
-                
+
                 <div id="tab_short">
                     <div id="holder_short"></div>
                     <div id="help_short">
@@ -96,14 +96,14 @@
                                         <td valign="top"><div class="toLeft size_image_text" data-translatecontent="STR_SYSTOLIC_BP_56"></div><div><img src="images/bpc-new.png" alt="short term view illustration" /></div><div class="toLeft size_image_text" data-translatecontent="STR_DIASTOLIC_BP_57"></div><div id="pos_perc" class="size_image_text" data-translatecontent="STR_PERCENTILE_58"></div></td>
                                         <td>
                                             <p align="justify" data-translatecontent="STR_SHORT_TERM_VIEW_EXPLANATION_9">
-                                                
+
                                             </p>
                                             <p align="justify" data-translatecontent="STR_SYSTOLIC_DIASTOLIC_CIRCLES_10">
 
                                             </p>
                                             <p align="justify" data-translatecontent="STR_PEDIATRIC_BP_VALUE_IN_CIRCLE_11">
-                                    
-                                                
+
+
                                                 <div data-translatecontent="STR_ADULT_READING_SYMBOL_12"></div>
                                             </p>
                                             <p align="justify">
@@ -120,7 +120,7 @@
                                 <span id="alert-message"></span>
                             </p>
                             <p data-translatecontent="STR_ADULT_BLOOD_PRESSURE_DATA_15">
-                                
+
                             </p>
                         </div>
                         <div id="dialog-demo" title="Information">
@@ -132,7 +132,7 @@
                     </div>
                     <div class="clearall">&nbsp;</div>
                 </div>
-                
+
                 <div id="tab_long">
                     <div id="wrapper_long" class="tab_wrapper">
                         <div id="filters">
@@ -176,16 +176,16 @@
                         <div id="holder_long"></div>
                     </div>
                 </div> <!-- long term tab -->
-                
+
                 <div id="tab_table">
                     <div id="wrapper_table" class="tab_wrapper">
                         <div id="holder_table"></div>
                     </div>
                 </div>
-                
+
                 <div id="tab_calculator">
                     <div id="calculator-title" data-translatecontent="STR_PEDIATRIC_CALCULATOR_29">
-                        
+
                     </div>
                     <div id="result-label">
                     </div>
@@ -193,9 +193,9 @@
                         <script type="text/javascript">
                             (function () {
                                 "use strict";
-                                
+
                                 BPC.initCalculatorValidation = function() {
-                                
+
                                     // Initialization settings for the jQuery Validate plugin
                                     $("#input").validate({
                                         rules: {
@@ -270,7 +270,7 @@
                                 };
                             }());
                         </script>
-                        
+
                         <form id="input" method="GET" action="#" data-ajax="false">
                             <table>
                                 <tr><th colspan=3 data-translatecontent="STR_PATIENT_30"></th></tr>
@@ -291,10 +291,10 @@
                                 <tr>
                                     <td class="inputLabel"><label for="add_gender"><span data-translatecontent="STR_GENDER_36"></span></label></td>
                                     <td colspan=2>
-                                      <input type="radio" name="add_gender" id="add_male" value="male" checked="checked" /> 
-                                      <label for="add_male"><span data-translatecontent="STR_MALE_37"></span></label> 
-                                      <input type="radio" name="add_gender" id="add_female" value="female" /> 
-                                      <label for="add_female"><span data-translatecontent="STR_FEMALE_38"></span></label> 
+                                      <input type="radio" name="add_gender" id="add_male" value="male" checked="checked" />
+                                      <label for="add_male"><span data-translatecontent="STR_MALE_37"></span></label>
+                                      <input type="radio" name="add_gender" id="add_female" value="female" />
+                                      <label for="add_female"><span data-translatecontent="STR_FEMALE_38"></span></label>
                                     </td>
                                 </tr>
                             </table>
@@ -321,13 +321,14 @@
                         </div>
                     </div>
                     <div class="clearall">&nbsp;</div>
+                    <div id="calc-note"></div>
                 </div> <!-- calculator tab -->
-                
+
                 <div id="tab_references">
                     <ul>
-                    
-                    
-                    
+
+
+
                         <li>
                             <p>
                                 The Seventh Report of the Joint National Committee on Prevention,
@@ -338,7 +339,7 @@
                         </li>
                         <li>
                             <p>
-                                The Fourth Report on the Diagnosis, Evaluation, and Treatment of High 
+                                The Fourth Report on the Diagnosis, Evaluation, and Treatment of High
                                 Blood Pressure in Children and Adolescents
                                 National Heart, Lung, and Blood Institute,
                                 NIH obtained 6 April 2011
@@ -357,9 +358,9 @@ CDC Clinical Growth Charts obtained 6 April 2011 (
                         </li>
                     </ul>
                 </div>
-                
+
             </div> <!-- tabs -->
-            
+
             <div id="footer">
                <div id="warning"></div>
                <div id="copy">v0.9</div>
@@ -367,7 +368,7 @@ CDC Clinical Growth Charts obtained 6 April 2011 (
                <div id="div_y"></div>
             </div>
         </div>
-        
+
         <!-- jTemplates template for the table view -->
         <div style="display:none"><textarea id="template" rows="0" cols="0"><!--
             {#template MAIN}
@@ -382,7 +383,7 @@ CDC Clinical Growth Charts obtained 6 April 2011 (
                     </tbody>
                 </table>
             {#/template MAIN}
-            
+
             {#template HEAD}
                 <tr>
                     <th data-translatecontent="STR_DATE_47"></th>
@@ -396,7 +397,7 @@ CDC Clinical Growth Charts obtained 6 April 2011 (
                     <th data-translatecontent="STR_ENCOUNTER_55"></th>
                 </tr>
             {#/template HEAD}
-            
+
             {#template ROW}
                 <tr>
                     <td>{$T.date}</td>
@@ -405,12 +406,12 @@ CDC Clinical Growth Charts obtained 6 April 2011 (
                     <td>{$T.systolic}/{$T.diastolic} mmHg</td>
                     <td>{#if $T.plabel}{$T.plabel}{#else}-{#/if}</td>
                     <td{#if $T.site} data-translatecontent="STR_SITE_{$T.site.toUpperCase().replace(" ","_")}"{#/if}>{#if $T.site}{$T.site}{#else}-{#/if}</td>
-                    <td{#if $T.position} data-translatecontent="STR_POSITION_{$T.position.toUpperCase()}"{#/if}>{#if $T.position}{$T.position}{#else}-{#/if}</td> 
+                    <td{#if $T.position} data-translatecontent="STR_POSITION_{$T.position.toUpperCase()}"{#/if}>{#if $T.position}{$T.position}{#else}-{#/if}</td>
                     <td{#if $T.method} data-translatecontent="STR_METHOD_{$T.method.toUpperCase()}"{#/if}>{#if $T.method}{$T.method}{#else}-{#/if}</td>
                     <td{#if $T.encounter} data-translatecontent="STR_ENCOUNTER_{$T.encounter.toUpperCase()}"{#/if}>{#if $T.encounter}{$T.encounter}{#else}-{#/if}</td>
                 </tr>
             {#/template ROW}
         --></textarea></div>
     </body>
-    
+
 </html>

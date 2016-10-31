@@ -20,7 +20,7 @@ if (!BPC) {
 
 (function () {
     "use strict";
-    
+
     // Shared patient object
     BPC.patient = {};
 
@@ -28,28 +28,28 @@ if (!BPC) {
     * Registers a callback for obtaining the demographics data from SMART (asynchronous)
     *
     * @returns {Object} jQuery deferred promise object
-    */  
+    */
     BPC.get_demographics = FhirLoader.demographics;
 
     /**
     * Registers a callback for obtaining the vitals data from SMART (asynchronous)
     *
     * @returns {Object} jQuery deferred promise object
-    */  
+    */
     BPC.get_vitals = FhirLoader.vitals;
 
     /**
     * Constructs a new patient object from the data provided
     *
     * @param {Object} demographics Array of objects. Parameters include:
-    *                                   birthday as date, 
+    *                                   birthday as date,
     *                                   gender ('male' or 'female')
     * @param {Object} vitals Array of objects. Parameters include:
     *                                   heightData as list of objects,
     *                                   bpData as list of objects
     *
     * @returns {Object} Patient object constructed from the data or null
-    */  
+    */
     BPC.processData = function(demographics, vitals) {
 
         var s = BPC.getViewSettings (),
@@ -66,32 +66,32 @@ if (!BPC) {
 
         // Initialize the patient object
         patient = new BPC.Patient(demographics.name, demographics.birthday, demographics.gender, demographics.identifier);
-        
+
         if (vitals_bp.length === 0) {
             // Display appropriate error message when there are no vitals
             // and degrade to calculator-only mode
-        
+
             //BPC.displayError("No vitals in the patient record");
-            
+
             // Clear the error message
             $("#info").text("").hide();
-        
+
             // Set the default tab to "calculator" and disable the first three tabs
             $('#tabs').tabs({
                 selected: 3
             }).tabs('option','disabled', [0, 1, 2]);
-            
+
             // Show the tabs
             $("#tabs").show();
-            
+
             // Initialize the calculator
-            BPC.initCalculator ({
-               age: current_age(patient.birthdate), 
-               sex: patient.sex, 
-               height: 0, 
-               systolic: 0, 
+            BPC.initCalculator (null, {
+               age: current_age(patient.birthdate),
+               sex: patient.sex,
+               height: 0,
+               systolic: 0,
                diastolic: 0});
-            
+
             // Display the error message
             $("#dialog-demo #alert-message").text("There are no usable vital signs in the patient record. You may want to try entering the current height and blood pressure measurements in the Pediatric Percentile Calculator manually.");
             $("#dialog-demo").dialog({
@@ -106,7 +106,7 @@ if (!BPC) {
                 }
             });
         } else {
-            
+
             // No errors detected -> proceed with full data processing
 
             //height_data = [{date: demographics.birthday, height:50}]; //(Assume average height at birth of 50cm)
@@ -122,20 +122,20 @@ if (!BPC) {
             height_data.sort(function (a,b) {
                 var x = parse_date(a.date).getTime(),
                     y = parse_date(b.date).getTime();
-                
+
                 return ( (x<y) ? -1: ((x>y)?1:0));
             });
-            
+
             // Array of height data taken when an adult
             height_data_adult = [];
-            
+
             // Don't use Array.filter or IE8 will have a problem
             for (i = 0; i < height_data.length; i++) {
                 if (height_data[i].age >= BPC.settings.adult_age) {
                     height_data_adult.push (height_data[i]);
                 }
             }
-            
+
             // This fails in IE8 (apparently Array.filter is not implemented there)
             /*
             height_data_adult = height_data.filter(function (e) {
@@ -144,34 +144,34 @@ if (!BPC) {
             */
 
             // Inner function for looking up the closest height for a given date
-            getClosestHeight = function (recordDate, height_data) { 
-                
+            getClosestHeight = function (recordDate, height_data) {
+
                 var closestHeight,
                     closestHeightDate,
                     j;
-                    
+
                 if (height_data.length === 0) return;
-                
+
                 closestHeight = height_data[0].height;
                 closestHeightDate = height_data[0].date;
-                    
+
                 for (j = 0; j < height_data.length; j++) {
                     if ( Math.abs(years_apart(height_data[j].date, recordDate)) < Math.abs(years_apart(closestHeightDate, recordDate)) ) {
                         closestHeight = height_data[j].height;
                         closestHeightDate = height_data[j].date;
                     }
                 }
-                
+
                 return {date: closestHeightDate, value: closestHeight};
-                    
+
             };
-            
+
             // Add the blood pressure data records to the patient object
-            for (i = 0; i < vitals_bp.length; i++) {  
+            for (i = 0; i < vitals_bp.length; i++) {
 
                 // Calculate the age of the patient at the ime of the vital encounter
                 age = years_apart( vitals_bp[i].vital_date, patient.birthdate );
-                
+
                 if (age < BPC.settings.adult_age) {
                     // Add code to update the patient data records with extrapolated height
                     // ...
@@ -184,7 +184,7 @@ if (!BPC) {
                     } else {
                         height = undefined;
                     }
-                } else {                
+                } else {
                     // When the reading is for an adult, get the closest height from the adult readings
                     myHeight = getClosestHeight (vitals_bp[i].vital_date, height_data_adult);
                     if (myHeight) {
@@ -192,12 +192,12 @@ if (!BPC) {
                     }
                     //height = undefined;
                 }
-                
+
                 // Add the data point to the patient object
-                patient.data.push ({timestamp: vitals_bp[i].vital_date, 
+                patient.data.push ({timestamp: vitals_bp[i].vital_date,
                     height: height,
                     systolic: Math.round(vitals_bp[i].systolic),
-                    diastolic: Math.round(vitals_bp[i].diastolic), 
+                    diastolic: Math.round(vitals_bp[i].diastolic),
                     site: BPC.getTermLabel (vitals_bp[i].bodySiteCode),
                     position: BPC.getTermLabel (vitals_bp[i].bodyPositionCode),
                     method: BPC.getTermLabel (vitals_bp[i].methodCode),
@@ -208,7 +208,7 @@ if (!BPC) {
             return patient;
         }
     };
-           
+
     /**
     * Sorts the patient data records and adds various utility methods to a patient object
     *
@@ -225,18 +225,18 @@ if (!BPC) {
         if (!patient) {
             patient = BPC.getSamplePatient ();
         }
-        
+
 		try {
 			// Sort the patient data records by timestamp
 			patient.data.sort(function (a,b) {
-				
+
 				var t1 = parse_date(a.timestamp).getTime(),
 					t2 = parse_date(b.timestamp).getTime(),
 					s1 = a.systolic,
 					s2 = b.systolic,
 					d1 = a.diastolic,
 					d2 = b.diastolic;
-					
+
 				if (t1 < t2) return -1;
 				else if (t1 > t2) return 1;
 				else if (s1 < s2) return -1;
@@ -246,15 +246,15 @@ if (!BPC) {
 				else return 0;
 			});
 		} catch (e) {
-			// This throws some wired exception in IE < 9. Fortunately we can 
-			// just skip it because that only happens from the print window and 
-			// that reuses the patient object from the opener where the data is 
+			// This throws some wired exception in IE < 9. Fortunately we can
+			// just skip it because that only happens from the print window and
+			// that reuses the patient object from the opener where the data is
 			// already sorted.
 		}
-		
+
         // Calculate the age and percentiles for the patient encounters
         for (i = 0, ii = patient.data.length; i < ii; i++) {
-        
+
             // Calculate the patient's age at the time of the reading
             patient.data[i].age = years_apart( patient.data[i].timestamp , patient.birthdate );
 
@@ -262,9 +262,9 @@ if (!BPC) {
             if ( (patient.data[i].age >= 1 && patient.data[i].age < BPC.settings.adult_age) && patient.data[i].height ) {
                 // For pediatric patients (1-18 year old) with height data
                 percentiles = bp_percentiles ({height: patient.data[i].height / 100,   // convert height to meters from centimeters
-                                               age: patient.data[i].age, 
-                                               sex: patient.sex, 
-                                               systolic: patient.data[i].systolic, 
+                                               age: patient.data[i].age,
+                                               sex: patient.sex,
+                                               systolic: patient.data[i].systolic,
                                                diastolic: patient.data[i].diastolic,
                                                round_results: true});
                 patient.data[i].sPercentile = percentiles.systolic;
@@ -274,7 +274,7 @@ if (!BPC) {
                 patient.data[i].sPercentile = BPC.getAdultPercentile(patient.data[i].systolic,true);
                 patient.data[i].dPercentile = BPC.getAdultPercentile(patient.data[i].diastolic,false);
             }
-            
+
             // Set the abbreviation for the adult percentiles
             if (patient.data[i].age >= BPC.settings.adult_age) {
                 res = getAbbreviationLabel (BPC.settings.zones, patient.data[i].sPercentile, patient.data[i].dPercentile);
@@ -294,13 +294,13 @@ if (!BPC) {
                     patient.data[i].plabel = "-";
                 }
             }
-            
+
             // Convert the date into the output format and standard unix timestamp
             d = parse_date (patient.data[i].timestamp);
             patient.data[i].date = d.toString(s.dateFormat);
             patient.data[i].unixTime = d.getTime();
         }
-            
+
         // Set the unix timestamps of the first and last encounters
         patient.startUnixTime = patient.data[0].unixTime;
         patient.endUnixTime = patient.data[patient.data.length - 1].unixTime;
@@ -325,10 +325,10 @@ if (!BPC) {
     * Returns the patient object label string
     */
     BPC.Patient.prototype.toString = function() {
-    
+
         var s = BPC.getViewSettings(),
             d = parse_date (this.birthdate);
-            
+
         var out = this.name + " (";
         if (this.sex.toUpperCase() === "MALE") {
             out += BPC.str("STR_MALE_37").toLowerCase();
@@ -336,7 +336,7 @@ if (!BPC) {
             out += BPC.str("STR_FEMALE_38").toLowerCase();
         }
         out += ", " + BPC.str("STR_DOB_108").toUpperCase() + ": " + d.toString(s.dateFormat) + ")";
-            
+
         return out;
     };
 
@@ -363,27 +363,27 @@ if (!BPC) {
             dateCounter,
             lastDate,
             i;
-            
+
         p.data = [];
-        
+
         // only include the last three encounters (the last data point of a day)
         for (i = this.data.length - 1, dateCounter = 0, lastDate; i >= 0 && dateCounter < n; i--) {
-        
+
             newDate = parse_date(this.data[i].date).toString("yyyy-MM-dd");
-            
+
             if (!lastDate || newDate !== lastDate) {
                 p.data.push (this.data[i]);
                 lastDate = newDate;
                 dateCounter++;
             }
         }
-        
+
         // need to reverse the array to restore the canonical order
         p.data.reverse();
-        
+
         return p;
     };
-     
+
     /**
     * Applies a filter to the patient object and returns a new patient object
     *
@@ -391,32 +391,32 @@ if (!BPC) {
     *
     * @returns {Object} the resultant patient
     */
-    BPC.Patient.prototype.applyFilter = function (filter) {       
+    BPC.Patient.prototype.applyFilter = function (filter) {
         var i,
             p = this.clone();
-            
+
         p.data = [];
-        
+
         // Run the filter
         for (i = 0; i < this.data.length; i++) {
             if (filter(this.data[i])) {
                 p.data.push (this.data[i]);
             }
         }
-        
+
         // Set the unix timestamps of the first and last encounters
         if (p.data.length > 0) {
             p.startUnixTime = p.data[0].unixTime;
             p.endUnixTime = p.data[p.data.length - 1].unixTime;
         }
-        
+
         return p;
     };
-    
+
     BPC.PEDIATRIC = 0;
     BPC.ADULT = 1;
     BPC.MIXED = 2;
-    
+
     /**
     * Retruns the type of the patient based on the readings (PEDIATRIC, ADULT, or MIXED)
     *
@@ -426,10 +426,10 @@ if (!BPC) {
     */
     BPC.Patient.prototype.getDataType = function () {
         var data = this.data;
-        
+
         // Default to pediatric when no data is available
         if (data.length === 0) return BPC.PEDIATRIC;
-        
+
         if (data[0].age < BPC.settings.adult_age) {
             if (data[data.length - 1].age < BPC.settings.adult_age) return BPC.PEDIATRIC;
             else return BPC.MIXED;
@@ -459,7 +459,7 @@ if (!BPC) {
     BPC.getMonths = function (age) {
         return Math.floor((age*12)%12);
     };
-    
+
     /**
     * Returns the abbreviations and label corresponding to a patient's blood pressure percentiles
     *
@@ -470,7 +470,7 @@ if (!BPC) {
     * @returns {Object} The abbreviations and label for the percentile
     */
     var getAbbreviationLabel = function (zones, sPercentile, dPercentile) {
-    
+
         var zoneStart,
             zoneEnd,
             i,
@@ -480,35 +480,35 @@ if (!BPC) {
             sAbbreviation,
             dAbbreviation,
             defaultResult = {sAbbreviation: s.abbreviationDefault, dAbbreviation: s.abbreviationDefault, label: s.labelDefault};
-            
+
         if (sPercentile && dPercentile) {
             percentile = Math.max(sPercentile, dPercentile);
         }
-        
+
         if (!percentile) return defaultResult;
-            
+
         var findAbbreviationLabel = function (percentile) {
             for (i = 0, zoneStart = 0, zoneEnd = 0; i < zones.length; i++) {
                 zoneEnd = zoneEnd + zones[i].percent;
-                
+
                 if (zoneStart <= percentile && percentile <= zoneEnd) {
                     return {abbreviation: zones[i].abbreviation, label: zones[i].label};
                 }
-                
+
                 zoneStart = zoneEnd;
             }
-            
+
             return {};
         }
-        
+
         label = findAbbreviationLabel(percentile).label;
         sAbbreviation = findAbbreviationLabel(sPercentile).abbreviation;
         dAbbreviation = findAbbreviationLabel(dPercentile).abbreviation;
-        
+
         if (label && sAbbreviation && dAbbreviation) {
             return {sAbbreviation: sAbbreviation, dAbbreviation: dAbbreviation, label: label, plabel: label};
         }
-        
+
         return defaultResult;  // never returned unless the zones don't sum up to 100%
     };
 }());

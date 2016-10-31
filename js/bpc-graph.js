@@ -27,7 +27,7 @@ if (!BPC) {
 
 (function () {
     "use strict";
-    
+
     // The canvases for the short and long term graphs
     var r_short,
         r_long;
@@ -38,43 +38,43 @@ if (!BPC) {
     * @param {Object} newPatient The new patient object
     */
     BPC.initApp = function (patient, demo_mode) {
-        
+
         var i, age;
 
-        if (BPC.settings.hide_patient_header) { 
+        if (BPC.settings.hide_patient_header) {
             $("#patient-info").hide();
         }
-        
+
         if (patient) {
             // Update the global patient handle
             BPC.patient = patient;
 
             // Initialize the patient object
             BPC.initPatient (patient);
-            
+
             // Initialize the patient information area
             $("#patient-info").text(String(patient));
-            
+
             // Clear the error message
             $("#info").text("").hide();
-            
+
             // Initialize the UI
             BPC.initUI ();
-            
+
             // Initialize the filter buttons
             BPC.initFilterButtons ();
-            
+
             // Draw the views
 
             $("#tabs").show();
 
             BPC.drawViews (patient,BPC.settings.zones);
-            
+
             $(window).on("set:language", function() {
             	BPC.drawViews (patient, BPC.settings.zones);
                 $("#patient-info").text(String(patient));
             });
-            
+
             // Find the last pre-adult data record available
             for (i = patient.data.length - 1; i >= 0; i--) {
                 if (patient.data[i].age < BPC.settings.adult_age) {
@@ -84,15 +84,16 @@ if (!BPC) {
 
             // Initialize the calculator
             if (i >= 0) {
-                BPC.initCalculator ({
-                           age: patient.data[i].age, 
-                           sex: patient.sex, 
-                           height: patient.data[i].height, 
-                           systolic: patient.data[i].systolic, 
+                BPC.initCalculator (patient, {
+                           date: patient.data[i].date,
+                           age: patient.data[i].age,
+                           sex: patient.sex,
+                           height: patient.data[i].height,
+                           systolic: patient.data[i].systolic,
                            diastolic: patient.data[i].diastolic});
             }
-        
-            
+
+
             // Display the demo dialog, if needed
             if (demo_mode) {
                 $( "#dialog-demo" ).dialog({
@@ -107,10 +108,10 @@ if (!BPC) {
                     }
                 });
             }
-            
+
             // Caculate the current age of the patient
             age = years_apart(new XDate().toISOString(), patient.birthdate);
-            
+
             // Display warning dialog if the patient has reached adult age
             if (age >= BPC.settings.adult_age) {
                 $("#alert-message").text(patient.name + " is " + BPC.getYears(age) + " years old!");
@@ -138,30 +139,30 @@ if (!BPC) {
     BPC.drawViews = function (patient, zones) {
 
         var pLong;
-    
+
         // Load toggle filter settings from the page
         BPC.loadFilterSettings ();
 
-        // Apply the tag filters 
-        pLong = patient.applyFilters (); 
+        // Apply the tag filters
+        pLong = patient.applyFilters ();
 
         // Clear the canvases
         BPC.clearGraphs();
-        
+
         // Draw the short term view with the last 3 encounters
         BPC.drawGraph (true, patient.recentEncounters(3), zones);
-        
+
         // Draw the long term view
         BPC.drawGraph (false, pLong, zones, true);
         BPC.drawGraph (false, pLong, zones, false);
-        
+
         // Reverse the data order
         pLong.data.reverse();
-        
+
         // Render the table view
         BPC.printTableView ("holder_table", pLong);
     };
-    
+
     /**
     * Readraws the short term view
     *
@@ -171,7 +172,7 @@ if (!BPC) {
     BPC.redrawViewShort = function (patient, zones) {
         // Clear the short term view canvas
         BPC.clearGraphsShort();
-        
+
         // Draw the short term view graph
         BPC.drawGraph (true, patient.recentEncounters(3), zones);
     };
@@ -184,12 +185,12 @@ if (!BPC) {
     */
     BPC.redrawViewLong = function (patient, zones) {
 
-        // Apply filters 
-        var p = patient.applyFilters (); 
+        // Apply filters
+        var p = patient.applyFilters ();
 
         // Clear the long term view canvas
         BPC.clearGraphsLong();
-        
+
         // Draw the long term view graph
         BPC.drawGraph (false, p, zones, true);
         BPC.drawGraph (false, p, zones, false);
@@ -203,12 +204,12 @@ if (!BPC) {
     */
     BPC.redrawViewTable = function (patient) {
 
-        // Apply filters 
+        // Apply filters
         var p = patient.applyFilters ();
-        
+
         // Reverse the data order
         p.data.reverse();
-        
+
         // Generate the table output
         BPC.printTableView ("holder_table", p);
     };
@@ -240,7 +241,7 @@ if (!BPC) {
     // term view graph. The method is generated on the first run and then executed by the second
     // run.
     var labelToFront = function () {};
-    
+
     /**
     * Draws either the long term or the short term view graph
     *
@@ -269,55 +270,55 @@ if (!BPC) {
             ii,
             patientType = patient.getDataType(),
             transitionX;
-            
+
         //console.log ("Type: " + patient.getDataType() + " " + getTransitionX(patient, s));
 
         // The filters apply for the long term view and the table view
         if (!shortTerm) {
             patient = patient.applyFilter(BPC.filterValid);
         }
-        
+
         // Don't draw in hidden canvas (to avoid Raphael text label placement bug) (by JCM)
         if ($("#" + s.divID).is(':hidden')) {
             return;
         }
-        
+
         // Calculate some view specific settings
         if (!shortTerm) {
-        
+
             s.startX = s.leftgutter;           // start of line graph plot
             s.endX = s.width - s.rightgutter;  // end of line graph plot
-            
+
         } else {
-        
+
             s.startX = s.leftgutter + s.leftpadding;            // start of line graph plot
             s.endX = s.width - s.rightgutter - s.rightpadding;  // end of line graph plot
-            
+
             // The width of the short term view depends on the number of encounters displayed
             if (patient.data.length > 0) {
                 dx = (patient.data.length - 1) * 70;  // spacing coefficient
             } else {
                 dx = 0;
             }
-            
+
             s.width = dx + s.leftpadding + s.rightpadding + s.leftgutter + s.rightgutter;
-            
+
             // Three grid columns per encounter
             s.gridCols = patient.data.length * 3;
         }
-        
+
         s.Y = (s.height - s.bottomgutter - s.topgutter) / s.max;  // The Y distance per percentile
-        
+
         // Calculate the age transition line coordinate
         transitionX = getTransitionX(patient, s);
-        
+
         // Update the local canvas handle
         if (shortTerm) {
             r = r_short;
         }    else {
             r = r_long;
         }
-        
+
         // If needed, construct a new canvas object
         if (!r) {
             r = Raphael(s.divID, s.width, s.height);
@@ -327,19 +328,19 @@ if (!BPC) {
                 r_long = r;
             }
         }
-            
+
         // Draw the grid
         r.drawGrid(s.leftgutter, s.topgutter, s.width - s.leftgutter - s.rightgutter, s.height - s.topgutter - s.bottomgutter, s.gridCols, s.gridRows, s.gridColor, shortTerm, patientType, transitionX);
-          
+
         // Draw the percentiles axis (needs to be reworked as a function and tested for correct scaling)
         r.drawVAxisLabels (s.leftgutter - 15, s.topgutter,s.height - s.topgutter - s.bottomgutter, s.vLabels, s.max, s.vAxisLabel ? BPC.str("STR_VAXIS_LABEL_" + s.vAxisLabel.toUpperCase()) : null, s.txt2, shortTerm);
-            
+
         // Draw the zones
         if (!shortTerm) r.drawZones(s.leftgutter, s.topgutter, s.width - s.leftgutter - s.rightgutter, s.height - s.topgutter - s.bottomgutter, zones, s, patientType, transitionX);
-        
+
         // If needed draw the transition separator
         if (!shortTerm && patientType === BPC.MIXED) r.drawTransition(transitionX, s.topgutter, s.height - s.topgutter - s.bottomgutter, s, !systolic);
-        
+
         // Set up drawing elements
         pathS = r.path().attr({stroke: s.colorS, "stroke-width": 3, "stroke-linejoin": "round"});
         pathD = r.path().attr({stroke: s.colorD, "stroke-width": 3, "stroke-linejoin": "round"});
@@ -359,14 +360,14 @@ if (!BPC) {
         label.push(r.text(40, 42, BPC.str("STR_BP") + ":").attr(s.txt3).attr({"text-anchor":"end"}));
         label.push(r.text(40, 57, BPC.str("STR_OTHER") + ":").attr(s.txt3).attr({"text-anchor":"end"}));
         label.hide();
-        frame = r.popup(100, 100, label, "right").attr({fill: "#000", stroke: "#666", "stroke-width": 2, "fill-opacity": .9}).hide();  
-          
+        frame = r.popup(100, 100, label, "right").attr({fill: "#000", stroke: "#666", "stroke-width": 2, "fill-opacity": .9}).hide();
+
         // Build the line graph and draw the data points
         for (i = 0, ii = patient.data.length; i < ii; i++) {
 
             // Method for drawing a dot on the plane
             var drawDot = function (x, y, percentile, abbreviation, data, gender) {
-            
+
                 // Get the correct color hue for the dot
                 var colorhue = getDotColorhue (zones, percentile);
 
@@ -378,7 +379,7 @@ if (!BPC) {
                 } else {
                     dot = r.circle(x, y, s.dotSize).attr({color: "hsb(" + [colorhue, .8, 1] + ")", fill: "hsb(" + [colorhue, .5, .4] + ")", stroke: "hsb(" + [colorhue, .5, 1] + ")", "stroke-width": 2});
                 }
-                
+
                 var dotLabel = {attr: function () {}};
                 if (s.showDotLabel) {
                     var labelText = s.abbreviationDefault;
@@ -389,18 +390,18 @@ if (!BPC) {
                     }
                     dotLabel = r.text(x, y, labelText).attr(s.txt2).toFront();
                 }
-                
+
                 // Generate a mouse over rectangle (invisible)
                 blanket.push(r.rect(x-s.blanketSize/2, y-s.blanketSize/2, s.blanketSize, s.blanketSize).attr({stroke: "none", fill: "#fff", opacity: 0}));
                 var rect = blanket[blanket.length - 1];
-                
+
                 // Event handlers for the mouse over zone
                 var timer, i = 0;
                 rect.hover(function () {
-                    
+
                     // Construct the other information string from the available metadata
                     var otherInfo = "";
-                    
+
                     if (data.site) otherInfo += BPC.str("STR_SITE_" + data.site.toUpperCase().replace(" ","_"));
                     if (data.position) {
                         if (otherInfo) otherInfo += ", ";
@@ -411,7 +412,7 @@ if (!BPC) {
                         otherInfo += BPC.str("STR_METHOD_" + data.method.toUpperCase());
                     }
                     if (!otherInfo) otherInfo = "none";
-                    
+
                     // Display the label box
                     label[0].attr({text: data.date + (BPC.str("STR_ENCOUNTER_" + data.encounter.toUpperCase())?" - " + BPC.str("STR_ENCOUNTER_" + data.encounter.toUpperCase()):"") + ((data.age >= BPC.settings.adult_age) ? " - ADULT" : "")});
                     if (data.height) label[1].attr({text: BPC.getYears(data.age) + "y " + BPC.getMonths(data.age) + "m, " + data.height + " cm, " + BPC.str("STR_GENDER_" + gender.toUpperCase())});
@@ -423,9 +424,9 @@ if (!BPC) {
                         else label[2].attr({text: data.systolic + "/" + data.diastolic + " mmHg"});
                     }
                     label[3].attr({text: otherInfo});
-                    
+
                     var animation_duration = 200; //milliseconds
-                    
+
                     // Calculate the correct side to display the popup label with respect to the dot
                     var side = "right";
                     if (x + frame.getBBox().width > s.width) {
@@ -437,7 +438,7 @@ if (!BPC) {
                             side = "bottom";
                         }
                     }
-                    
+
                     // Fade in the label
                     var ppp = r.popup(x, y, label, side, 1);
                     label.translate(ppp.dx, ppp.dy).attr({opacity: 0}).show().stop().animateWith(frame, {opacity: 1}, animation_duration);
@@ -446,12 +447,12 @@ if (!BPC) {
                     // Size the dot up
                     dot.attr("r", s.dotSizeSelected);
                     if (s.showDotLabel) dotLabel.attr(s.txt);
-                    
+
                 }, function () {
                     // Restore the dot's original size
                     dot.attr("r", s.dotSize);
                     if (s.showDotLabel) dotLabel.attr(s.txt2);
-                    
+
                     // Hide the label box
                     frame.hide();
                     label.hide();
@@ -461,9 +462,9 @@ if (!BPC) {
             if (!shortTerm) {
                 // Calculate the x coordinate for this data point
                 var x = Math.round (BPC.scale (patient.data[i].unixTime,patient.startUnixTime,patient.endUnixTime,s.startX,s.endX));
-                
+
                 // Build the two path increments for the systolic and diastolic graphs
-                var pathAdvance = function (first, x, percentile, abbreviation, flag) { 
+                var pathAdvance = function (first, x, percentile, abbreviation, flag) {
                     var path = [];
                     var y = ltv_scale(s.height - s.bottomgutter - s.Y * percentile);
                     if (first) path = ["M", x, y];
@@ -488,14 +489,14 @@ if (!BPC) {
                     dx = i * (s.width - s.leftgutter - s.rightgutter - s.leftpadding - s.rightpadding) / (ii-1);
                 }
                 x = Math.round (s.leftgutter + s.leftpadding + dx);
-                
+
                 // Draw the vertical line connecting the pair of dots (short term view)
                 var y1 = Math.round(s.height - s.bottomgutter - s.Y * patient.data[i].diastolic);
                 var y2 = Math.round(s.height - s.bottomgutter - s.Y * patient.data[i].systolic);
                 r.path ("M" + x + " " + y1 + "L" + x + " " + y2).attr({stroke: s.colorS, "stroke-width": 3, "stroke-linejoin": "round"});
-                
+
                 // Draw the pair of circles for the blood pressure reading
-                var spawnCircle = function (x, value, percentile, abbreviation) { 
+                var spawnCircle = function (x, value, percentile, abbreviation) {
                     var y = Math.round(s.height - s.bottomgutter - s.Y * value);
                     drawDot (x, y, percentile, abbreviation, patient.data[i], patient.sex);  // draw the data point circle
                 };
@@ -506,13 +507,13 @@ if (!BPC) {
                 r.text(x, s.height - 50, patient.data[i].date).attr(s.txt2).toBack();
             }
         }
-        
+
         // Draw the two line graphs
         if (!shortTerm && pS.length > 0 && pD.length > 0) {
             //if (systolic) pathS.attr({path: pS});
             //else pathD.attr({path: pD});
         }
-        
+
         // Hack: When on the first run of the long term view drawing, generate a handler for the
         // systolic labels
         if (!shortTerm && systolic) {
@@ -522,63 +523,63 @@ if (!BPC) {
                 blanket.toFront();
             };
         }
-            
-        
+
+
         // Bring the popup box and the mouse over triggers to the front
         frame.toFront();
         label.toFront();
         blanket.toFront();
-        
+
         // Hack: On the second run execute the handler for positioning the systolic labels
         if (!shortTerm && !systolic) {
             labelToFront();
         }
-        
-        
+
+
         /*function capitaliseFirstLetter(string)
 		{
     		return string.charAt(0).toUpperCase() + string.slice(1);
 		}*/
-        
+
         // Draw the side label for the systolic and diastolic graphs in the long term view
         if (!shortTerm) {
             var mytext;
-            
+
             if (systolic) mytext = BPC.str("STR_SYSTOLIC");
             else mytext = BPC.str("STR_DIASTOLIC");
-            r.text(s.width - s.rightgutter + 20, Math.round(s.topgutter + ((s.height-s.topgutter-s.bottomgutter)/2)), mytext).attr({font: '20px Helvetica, Arial', fill: "#555"}).rotate(90).toBack();       
+            r.text(s.width - s.rightgutter + 20, Math.round(s.topgutter + ((s.height-s.topgutter-s.bottomgutter)/2)), mytext).attr({font: '20px Helvetica, Arial', fill: "#555"}).rotate(90).toBack();
         }
-        
+
         // Add the "help" hotspot to the short term view
         if (shortTerm) {
             var helpBlanket = r.rect (s.width-s.rightgutter-55, 13, 60, 15).attr({fill: "#fff", opacity: 0, cursor:"pointer"});
             var helpL = r.text(s.width-s.rightgutter, 20, BPC.str("STR_HELP") + ">>").attr({"text-anchor":"end"}).attr(s.txt2).attr({fill: "#555"});
-            
+
             var animation_duration = 200; //milliseconds
-            
+
             helpBlanket.hover(function () {
                 helpL.stop().animate({fill: "#fff"}, animation_duration);
             }, function () {
                 helpL.stop().animate({fill: "#555"}, animation_duration);
             });
-            
+
             // Event handler for clicking on the help hotspot
             helpBlanket.click(function () {
-            
+
                 // The state of the help panel
                 var displayed = false,
                     animating = false;
-            
+
                 return function () {
-                
-                    // get effect type 
+
+                    // get effect type
                     var selectedEffect = $( "#effectType" ).val();
-  
+
                     if (!animating) {
                         if (!displayed) {
                             animating=true;
                             $( "#help-content" ).stop().show( selectedEffect, {}, 1000, function () {animating=false;} );
-                            helpL.attr({text:BPC.str("STR_HELP") + "<<"}); 
+                            helpL.attr({text:BPC.str("STR_HELP") + "<<"});
                             displayed = true;
                         } else {
                             animating=true;
@@ -589,11 +590,11 @@ if (!BPC) {
                     }
                 };
             } ());
-            
+
             var helpTrigger = r.set();
             helpTrigger.push (helpL);
         }
-        
+
         // Generate the legend for the short term and long term diastolic views
         if (shortTerm || (!shortTerm && !systolic)) {
             var legend = r.getLegend (legendX,legendY,zones,s);
@@ -602,7 +603,7 @@ if (!BPC) {
             var legendFrame = r.rect (legendX-20, legendY-20, 20, 20, 10).attr({color: "#000", fill: "#000", stroke: "#444", "stroke-width": 2, opacity: .9})
             var legendBlanket = r.rect (legendX-20, legendY-20, 20, 20).attr({fill: "#fff", opacity: 0});
             var legendL = r.image("images/i.png", legendX-17, legendY-16, 12, 12); //r.text(legendX-10, legendY-10, "i").attr(s.txt4);
-            
+
             // Event handlers for the mouse over zone
             var animation_duration = 200; //milliseconds
             legendBlanket.hover(function () {
@@ -627,20 +628,20 @@ if (!BPC) {
                 helpTrigger.toFront();
                 helpBlanket.toFront();
             }
-            
+
             // Bring the popup box and the mouse over triggers to the front
             frame.toFront();
             label.toFront();
             blanket.toFront();
-            
+
             // Hack: On the second run execute the handler for positioning the systolic labels
             if (!shortTerm && !systolic) {
                 labelToFront();
             }
-            
+
             // Position the legend's trigger to the front
             legendBlanket.toFront();
-            
+
             // Display the legend while setting it to transparent
             legend.attr({opacity: 0}).show();
         }
@@ -650,21 +651,21 @@ if (!BPC) {
     * Draws the background grid
     */
     Raphael.fn.drawGrid = function (x, y, w, h, wv, hv, color, shortTerm, patientType, transitionX) {
-        
+
         var path = [],
             rowHeight = h / hv,
             columnWidth = w / wv,
             i;
-        
+
         if (hv > 0) {
 			path.push(
-				"M", Math.round(x)    , Math.round(y), 
+				"M", Math.round(x)    , Math.round(y),
 				"L", Math.round(x + w), Math.round(y),
 				"M", Math.round(x + w), Math.round(y + h),
 				"L", Math.round(x)    , Math.round(y + h)
 			);
 		}
-		
+
 		if (wv > 0) {
 			path.push(
 				"M", Math.round(x)    , Math.round(y),
@@ -673,9 +674,9 @@ if (!BPC) {
 				"L", Math.round(x + w), Math.round(y)
 			);
 		}
-            
+
         color = color || "#000";   // default color to black
-            
+
         if (shortTerm || patientType !== BPC.ADULT) {
             for (i = 1; i < hv; i++) {
                 if (!shortTerm) {
@@ -689,7 +690,7 @@ if (!BPC) {
                 }
             }
         }
-        
+
         if (shortTerm || patientType !== BPC.ADULT) {
             for (i = 1; i < wv; i++) {
                 if (shortTerm || patientType === BPC.PEDIATRIC || (patientType === BPC.MIXED && Math.round(x + i * columnWidth) < transitionX)) {
@@ -697,11 +698,11 @@ if (!BPC) {
                 }
             }
         }
-        
+
         path = this.path(path.join(",")).attr({stroke: color}).toBack();
-        
+
         path[0].style.shapeRendering = "crispedges";
-        
+
         return path;
     };
 
@@ -709,12 +710,12 @@ if (!BPC) {
     * Draws the vertical axis labels
     */
     Raphael.fn.drawVAxisLabels = function (x, y, h, hv, maxValue, axisLabel, styling, shortTerm) {
-    
+
         var stepDelta = h / hv,
             label,
             val,
             i;
-        
+
         if (shortTerm) {
             for (i = 0; i <= hv; i++) {
                 label = maxValue - i*(maxValue / hv);
@@ -729,7 +730,7 @@ if (!BPC) {
                 }
             }
         }
-        
+
         if (axisLabel && shortTerm) {
             this.text(x, Math.round(y - 20), axisLabel).attr(styling).attr({"font-weight":"bold"}).toBack();
         }
@@ -742,12 +743,12 @@ if (!BPC) {
     * Draws the horizotal axis labels
     */
     Raphael.fn.drawHAxisLabels = function (x, y, w, wv, minDate, maxDate, styling, patientType, transitionX) {
-    
+
         var stepDelta = w / wv,
             stepGamma = (maxDate - minDate) / wv
             label,
             i;
-            
+
         for (i = 0; i <= wv; i++) {
             label = parse_date (minDate + i*stepGamma).toString("MMM yyyy");
             this.text(Math.round(x + i * stepDelta) + 10 , y-5, label).attr(styling).rotate(60).translate(0, 40).toBack();
@@ -766,12 +767,12 @@ if (!BPC) {
             s = settings,
             path,
             dashed = {fill: "none", "stroke-dasharray": "- "};
-        
+
         for (i = zones.length - 1, currentY = y; i >= 0; i--) {
-        
+
             zoneH = zones[i].percent * dh;
             zoneH_scaled = ltv_scale_height(currentY, zoneH);
-            
+
             // Draw the dashed grid line for the dashed zones
             if (zones[i].dashthrough) {
                 if (patientType === BPC.PEDIATRIC) {
@@ -779,28 +780,28 @@ if (!BPC) {
                 } else if (patientType === BPC.MIXED) {
                     path = ["M", Math.round(x), ltv_scale(currentY + zoneH/2), "H", Math.round(transitionX)];
                 }
-                
+
                 if (path) this.path(path.join(",")).attr({stroke: s.gridColor}).attr(dashed);
             }
-            
+
             //console.log (currentY + ":" + zoneH + "->" + ltv_scale(currentY) + ":" + zoneH_scaled);
-            
+
             this.rect(x, ltv_scale(currentY), w, zoneH_scaled).attr({
-				stroke: "none", 
-				"stroke-width": 0, 
+				stroke: "none",
+				"stroke-width": 0,
 				fill: "hsb(" + [
-					zones[i].colorhue, 
-					zones[i].saturation === undefined ? 0.9 : zones[i].saturation, 
+					zones[i].colorhue,
+					zones[i].saturation === undefined ? 0.9 : zones[i].saturation,
 					zones[i].brightness === undefined ? 0.8 : zones[i].brightness
-				] + ")", 
+				] + ")",
 				opacity: zones[i].opacity
 			}).toBack();
-            
+
             currentY = currentY + zoneH;
-            
+
         }
     };
-    
+
     /**
     * Draws the transition separator
     */
@@ -813,39 +814,39 @@ if (!BPC) {
     * Draws the legend content
     */
     Raphael.fn.getLegend = function (x, y, zones, settings) {
-        
+
         var legend = this.set(),
             width = settings.legendWidth,
             height = settings.legendHeightEmpty + settings.legendItemHeight * zones.length,
             dy = settings.legendItemHeight,
             colorhue,
             i;
-        
+
         legend.push(this.text(x - width + 35, y - height + 15, BPC.str("STR_LEGEND")).attr(settings.txt5));
-        
+
         for (i = zones.length - 1; i >= 0; i--) {
             colorhue = zones[i].colorhue;
             legend.push(this.circle(x - width + 20, y - height + (zones.length-i)*dy + 15, 6).attr({color: "hsb(" + [colorhue, 0.8, 1] + ")", fill: "hsb(" + [colorhue, 0.5, 0.4] + ")", stroke: "hsb(" + [colorhue, 0.5, 1] + ")", "stroke-width": 2}));
             //legend.push(this.text(x - width + 36, y - height + (zones.length-i)*dy + 15, zones[i].definition).attr(settings.txt6));
             legend.push(
             	this.text(
-		        	x - width + 36, 
-		        	y - height + (zones.length-i)*dy + 15, 
-		        	("STR_" + zones[i].definition.toUpperCase() in BPC.localizations) ? 
-				    	BPC.str("STR_" + zones[i].definition.toUpperCase()) : 
+		        	x - width + 36,
+		        	y - height + (zones.length-i)*dy + 15,
+		        	("STR_" + zones[i].definition.toUpperCase() in BPC.localizations) ?
+				    	BPC.str("STR_" + zones[i].definition.toUpperCase()) :
 				    	zones[i].definition.toUpperCase()
 		        ).attr(settings.txt6)
 		    );
         }
-        
+
         legend.hide();
-        
+
         return legend;
     };
-    
+
     /**
-     * Turns on the "crispedges" rendering for the element (if supported by the 
-     * browser). WARNING: This can make object have one of their dimmensions 
+     * Turns on the "crispedges" rendering for the element (if supported by the
+     * browser). WARNING: This can make object have one of their dimmensions
      * smaller than 0.5 pixels to dissapear!
      */
     Raphael.el.crisp = function() {
@@ -862,24 +863,24 @@ if (!BPC) {
     * @returns {Number} The colorhue value
     */
     var getDotColorhue = function (zones, percentile) {
-    
+
         var zoneStart,
             zoneEnd,
             i,
             s = BPC.getViewSettings(true,true);
-        
+
         if (!percentile) return s.colorhueDefault;
-            
+
         for (i = 0, zoneStart = 0, zoneEnd = 0; i < zones.length; i++) {
             zoneEnd = zoneEnd + zones[i].percent;
-            
+
             if (zoneStart <= percentile && percentile <= zoneEnd) {
                 return zones[i].colorhue;
             }
-            
+
             zoneStart = zoneEnd;
         }
-        
+
         return s.colorhueDefault;  // never returned unless the zones don't sum up to 100%
     }
 
@@ -893,11 +894,11 @@ if (!BPC) {
     */
     BPC.printTableView = function (divID, patient) {
         // Table output (using jTemplates)
-    	
+
         $("#"+divID).setTemplateElement("template");
         $("#"+divID).processTemplate(patient);
         BPC.translateHTML($("#"+divID).parent());
-        
+
     };
 
     /**
@@ -917,7 +918,7 @@ if (!BPC) {
        if (x > 195 && x <=211)  return BPC.scale(x,195,211,195,265);
        if (x > 211 && x <=355)  return BPC.scale(x,211,355,265,355);
     };
-    
+
     /**
     * Implements s height segment scaling utility for the long-term view graphics
     *
@@ -931,7 +932,7 @@ if (!BPC) {
             end = ltv_scale(y+h);
         return end-start;
     };
-    
+
     /**
     * Computes and returns the x coordinate for the pediatric-to-adult transition
     *
@@ -942,17 +943,17 @@ if (!BPC) {
     var getTransitionX = function (patient, settings) {
         var transitionUnixTime,
             d;
-    
+
         if (patient.getDataType() !== BPC.MIXED) {
             return -1;
         } else {
             d = parse_date(patient.birthdate);
-            
+
             //console.log ("time before:" + d.getTime());
             //console.log (d.getFullYear());
-            
+
             d.setYear ( d.getFullYear() + BPC.settings.adult_age );
-            
+
             //console.log ("time after:" + d.getTime());
 
             transitionUnixTime = d.getTime();
