@@ -1,0 +1,27 @@
+{
+  "name": "apps",
+  "version": "1.0.0",
+  "description": "Meta package with all the public apps",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prestart": "cd diabetes-monograph-app && npm i && cd ../disease-monograph-app && npm i && cd ..",
+    "start": "http-server . -c-1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/smart-on-fhir/apps.git"
+  },
+  "keywords": [
+    "apps"
+  ],
+  "author": "CHIP",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/smart-on-fhir/apps/issues"
+  },
+  "homepage": "https://github.com/smart-on-fhir/apps#readme",
+  "dependencies": {
+    "http-server": "^0.10.0"
+  }
+}
