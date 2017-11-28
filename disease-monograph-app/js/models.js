@@ -35,11 +35,16 @@ DMPatientServices.factory('$dmPatient', function () {
                     $.each(allMeds, function (idx, med) {
                         var c = med.medicationCodeableConcept.coding[0];
                         var name = c.display;
-                        var inst = med.dosageInstruction[0];
+                        var inst = med.dosageInstruction;
                         var startDate = inst.timing ? inst.timing.repeat.boundsPeriod.start : "unknown";
                         // TO DO: need to verify that c.system is RXNORM
                         
-                        patient.medicines.push({ "rxCui": c.code, "rxName": name, "ins": inst.text, "startDate": startDate });
+                        patient.medicines.push({
+                            "rxCui": c.code,
+                            "rxName": name,
+                            "ins": inst ? inst[0].text : "-",
+                            "startDate": startDate
+                        });
                     });
                 
                     patient.medicines = _(patient.medicines).chain().sortBy(function (p) {
