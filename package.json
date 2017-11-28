@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prestart": "cd diabetes-monograph-app && npm i && cd ../disease-monograph-app && npm i && cd ../cardiac-risk && npm i && cd ..",
+    "prestart": "cd diabetes-monograph-app && npm i && cd ../disease-monograph-app && npm i && cd ../cardiac-risk-app && npm i && cd ..",
     "start": "http-server . -c-1",
     "pull:diabetes-monograph": "git subtree pull --prefix diabetes-monograph-app https://github.com/smart-on-fhir/diabetes-monograph-app.git master",
     "pull:disease-monograph" : "git subtree pull --prefix disease-monograph-app  https://github.com/smart-on-fhir/disease-monograph-app.git  master",
