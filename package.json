@@ -5,13 +5,14 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prestart": "cd diabetes-monograph-app && npm i && cd ../disease-monograph-app && npm i && cd ../cardiac-risk-app && npm i && cd ../bp-centiles-app && npm i && cd ..",
+    "prestart": "cd diabetes-monograph-app && npm i && cd ../disease-monograph-app && npm i && cd ../cardiac-risk-app && npm i && cd ../bp-centiles-app && npm i && cd ../growth-chart-app && npm i && cd ..",
     "start": "http-server . -c-1",
-    "pull:diabetes-monograph": "git subtree pull --prefix diabetes-monograph-app https://github.com/smart-on-fhir/diabetes-monograph-app.git master",
-    "pull:disease-monograph" : "git subtree pull --prefix disease-monograph-app  https://github.com/smart-on-fhir/disease-monograph-app.git  master",
-    "pull:cardiac-risk"      : "git subtree pull --prefix cardiac-risk-app       https://github.com/smart-on-fhir/cardiac-risk-app.git       master",
-    "pull:bp-centiles"       : "git subtree pull --prefix bp-centiles-app        https://github.com/smart-on-fhir/bp-centiles-app.git        master",
-    "pull:subtrees": "npm run pull:diabetes-monograph && npm run pull:disease-monograph && npm run pull:cardiac-risk && pull:bp-centiles"
+    "pull:diabetes-monograph": "git subtree pull -P diabetes-monograph-app https://github.com/smart-on-fhir/diabetes-monograph-app.git master",
+    "pull:disease-monograph" : "git subtree pull -P disease-monograph-app  https://github.com/smart-on-fhir/disease-monograph-app.git  master",
+    "pull:cardiac-risk"      : "git subtree pull -P cardiac-risk-app       https://github.com/smart-on-fhir/cardiac-risk-app.git       master",
+    "pull:bp-centiles"       : "git subtree pull -P bp-centiles-app        https://github.com/smart-on-fhir/bp-centiles-app.git        master",
+    "pull:growth-chart"      : "git subtree pull -P growth-chart-app       https://github.com/smart-on-fhir/growth-chart-app.git       master",
+    "pull:subtrees": "npm run pull:diabetes-monograph && npm run pull:disease-monograph && npm run pull:cardiac-risk && pull:bp-centiles && pull:growth-chart"
   },
   "repository": {
     "type": "git",
