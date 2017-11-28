@@ -151,27 +151,54 @@ var _round = function(val, dec){ return Math.round(val*Math.pow(10,dec))/Math.po
 // Data Queries
 //
 
+/**
+ * Walks thru an object (ar array) and returns the value found at the
+ * provided path. This function is very simple so it intentionally does not
+ * support any argument polymorphism, meaning that the path can only be a
+ * dot-separated string. If the path is invalid returns undefined.
+ * @param {Object} obj The object (or Array) to walk through
+ * @param {String} path The path (eg. "a.b.4.c")
+ * @returns {*} Whatever is found in the path or undefined
+ */
+function getPath(obj, path) {
+  var out = obj;
+  $.each(path.split("."), function(i, key) {
+    out = out ? out[key] : undefined;
+  });
+  return out;
+}
+
+function getDosageInstruction(rx) {
+  var out = "";
+  var instruction;
+  if (rx.dosageInstruction && rx.dosageInstruction[0]) {
+    instruction = rx.dosageInstruction[0];
+    out = instruction.text;
+
+    if (!out && instruction.doseQuantity) {
+      out = [ instruction.doseQuantity.value, instruction.doseQuantity.unit ];
+
+      if (instruction.timing) {
+        var rpt = instruction.timing.repeat;
+        if (rpt && "frequency" in rpt && "duration" in rpt && "unit" in rpt) {
+          out.push(rpt.frequency, "per", rpt.duration, rpt.unit);
+        }
+      }
+
+      out = out.join(" ");
+    }
+  }
+  return out;
+}
+
 var get_medications = function(){
   return $.Deferred(function(dfd){
     smart.patient.api.fetchAll({type: "MedicationOrder"}).then(function(rxs){
       _(rxs).each(function(rx){
-        var instructions = "";
-        if (rx.dosageInstruction) {
-          instructions = rx.dosageInstruction[0].text;
-          if (!instructions && rx.dosageInstruction[0].doseQuantity) {
-            instructions = rx.dosageInstruction[0].doseQuantity.value+ 
-                          " " + rx.dosageInstruction[0].doseQuantity.unit+
-                          " " 
-                           rx.dosageInstruction[0].scheduledTiming.repeat.frequency + 
-                           " per " +
-                           rx.dosageInstruction[0].scheduledTiming.repeat.duration + " " +
-                           rx.dosageInstruction[0].scheduledTiming.repeat.unit;
-          }
-        }
         pt.meds_arr.push([
-          new XDate(rx.dosageInstruction && rx.dosageInstruction[0].timing.repeat.boundsPeriod.start || "1800-01-01").valueOf(),
+          new XDate(getPath(rx, "dosageInstruction.dosageInstruction.0.timing.repeat.boundsPeriod.start") || "1800-01-01").valueOf(),
           rx.medicationCodeableConcept.coding[0].display,
-          instructions
+          getDosageInstruction(rx)
         ])
       })
 
