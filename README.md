@@ -25,7 +25,7 @@ This contains the following apps
 
 
 ## Update All
-To update you can pull all the changes fron all the sub-trees by running `npm run pull:subtrees`.
+To update you can pull all the changes from all the sub-trees by running `npm run pull:subtrees`.
 Then you can push the updated content and re-deploy the static server.
 
 ## Run Locally
