@@ -37,3 +37,4 @@ just run `npm start` and the apps will be available in these sub-folders:
     bp-centiles-app
     growth-chart-app
 
+[![Run on Repl.it](https://repl.it/badge/github/smart-on-fhir/smart-examples)](https://repl.it/github/smart-on-fhir/smart-examples)
